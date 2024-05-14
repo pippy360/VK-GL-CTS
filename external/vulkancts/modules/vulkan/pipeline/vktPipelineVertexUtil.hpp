@@ -80,6 +80,7 @@ bool						isVertexFormatPacked				(vk::VkFormat format);
  *  The triangles of each quad have different winding orders (CW/CCW).
  */
 std::vector<Vertex4RGBA>		createOverlappingQuads				(void);
+std::vector<Vertex4RGBA>        createOverlappingQuadsWith2dScaleAndTranslate (float scale, tcu::Vec2 translateVec);
 std::vector<Vertex4RGBARGBA>	createOverlappingQuadsDualSource	(void);
 
 std::vector<Vertex4Tex4>	createFullscreenQuad		(void);

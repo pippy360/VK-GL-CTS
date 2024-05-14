@@ -34,6 +34,8 @@
 
 #include "deMath.h"
 
+
+#include <chrono>
 #include <iostream>
 
 namespace tcu
@@ -206,6 +208,7 @@ void App::cleanup (void)
  *//*--------------------------------------------------------------------*/
 bool App::iterate (void)
 {
+
 	if (!m_testExecutor)
 	{
 		DE_ASSERT(m_testCtx->getCommandLine().getRunMode() != RUNMODE_EXECUTE);
@@ -271,7 +274,6 @@ bool App::iterate (void)
 			}
 		}
 	}
-
 	return platformOk && testExecOk;
 }
 

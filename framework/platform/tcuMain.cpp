@@ -31,6 +31,7 @@
 #include "deUniquePtr.hpp"
 #include "qpDebugOut.h"
 
+#include <chrono>
 #include <cstdio>
 
 // Implement this in your platform port.
@@ -47,13 +48,19 @@ void	disableStdout		()							{ qpRedirectOut(disableRawWrites, disableFmtWrites)
 
 int main (int argc, char** argv)
 {
+
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::duration;
+	using std::chrono::seconds;
+	auto t1 = high_resolution_clock::now();
+
 	int exitStatus = EXIT_SUCCESS;
 
 #if (DE_OS != DE_OS_WIN32)
 	// Set stdout to line-buffered mode (will be fully buffered by default if stdout is pipe).
 	setvbuf(stdout, DE_NULL, _IOLBF, 4*1024);
 #endif
-
 	try
 	{
 		tcu::CommandLine				cmdLine		(argc, argv);
@@ -85,6 +92,9 @@ int main (int argc, char** argv)
 	{
 		tcu::die("%s", e.what());
 	}
+	auto t2 = high_resolution_clock::now();
+	auto ms_int = duration_cast<seconds>(t2 - t1);
+	tcu::print("Tom: finished in %ld seconds\n", ms_int.count());
 
 	return exitStatus;
 }

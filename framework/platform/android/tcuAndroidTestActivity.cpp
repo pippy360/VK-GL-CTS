@@ -26,6 +26,7 @@
 
 #include <android/window.h>
 
+#include <chrono>
 #include <string>
 #include <stdlib.h>
 
@@ -95,6 +96,13 @@ TestActivity::TestActivity (ANativeActivity* activity)
 	// Set initial orientation.
 	setRequestedOrientation(getNativeActivity(), mapScreenRotation(m_cmdLine.getScreenRotation()));
 
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::duration;
+	using std::chrono::seconds;
+	m_timestart = high_resolution_clock::now();
+
+
 	// Set up window flags.
 	ANativeActivity_setWindowFlags(activity, AWINDOW_FLAG_KEEP_SCREEN_ON	|
 											 AWINDOW_FLAG_TURN_SCREEN_ON	|
@@ -128,6 +136,10 @@ void TestActivity::onDestroy (void)
 	}
 
 	RenderActivity::onDestroy();
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto ms_int = std::chrono::duration_cast<std::chrono::seconds>(t2 - m_timestart);
+	tcu::print("Tom: finished in %lld seconds\n", ms_int.count());
 
 	// Kill this process.
 	print("Done, killing process");

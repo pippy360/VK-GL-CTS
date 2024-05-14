@@ -28,6 +28,7 @@
 #include "tcuPlatform.hpp"
 #include "tcuResource.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 
@@ -128,6 +129,11 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::duration;
+	using std::chrono::seconds;
+	auto t1 = high_resolution_clock::now();
 	try
 	{
 		de::UniquePtr<tcu::Platform> platform(createPlatform());
@@ -153,6 +159,9 @@ int main(int argc, char** argv)
 		printf("ERROR: %s\n", e.what());
 		return -1;
 	}
+	auto t2 = high_resolution_clock::now();
+	auto ms_int = duration_cast<seconds>(t2 - t1);
+	tcu::print("Tom: finished in %ld seconds\n", ms_int.count());
 
 	return exitStatus;
 }
