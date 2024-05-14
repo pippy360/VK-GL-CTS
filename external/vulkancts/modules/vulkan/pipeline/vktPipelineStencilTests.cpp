@@ -367,9 +367,11 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	SimpleAllocator				memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
 	const VkComponentMapping	componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
-	m_graphicsPipelines.reserve(StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size());
-	// Create each GraphicsPipelineWrapper individually and emplace it into the vector
-	for (int i = 0; i < StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size(); ++i) {
+
+    const size_t totalQuadCount = StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size();
+
+	m_graphicsPipelines.reserve(totalQuadCount);
+	for (int quadNdx = 0; quadNdx < totalQuadCount; ++quadNdx) {
 		m_graphicsPipelines.emplace_back(context.getInstanceInterface(),
 		                                 context.getDeviceInterface(),
 		                                 context.getPhysicalDevice(),
@@ -652,7 +654,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 				back.reference		= config.backRef;
 
 				//FIXME: clean up all these difference sizes
-				m_graphicsPipelines[quadNdx+(stencilOpNdx*StencilTest::QUAD_COUNT)]
+                const size_t currentQuadNdx = (stencilOpNdx*StencilTest::QUAD_COUNT) + quadNdx;
+				m_graphicsPipelines[currentQuadNdx]
 					.setDefaultRasterizerDiscardEnable(!m_colorAttachmentEnable)
 					.setDefaultMultisampleState()
 					.setupVertexInputState(&vertexInputStateParams)
@@ -708,10 +711,9 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		VK_CHECK(vk.bindBufferMemory(vkDevice, *m_vertexBuffer, m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset()));
 
 		// Adjust depths
-
-		for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT*m_stencilOpStatesFront.size(); quadNdx++)
+		for (int quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
 			for (int vertexNdx = 0; vertexNdx < 6; vertexNdx++)
-				m_vertices[quadNdx * 6 + vertexNdx].position.z() = StencilTest::s_quadDepths[quadNdx%4];
+				m_vertices[quadNdx * 6 + vertexNdx].position.z() = StencilTest::s_quadDepths[quadNdx % 4];
 
 		// Load vertices into vertex buffer
 		deMemcpy(m_vertexBufferAlloc->getHostPtr(), m_vertices.data(), m_vertices.size() * sizeof(Vertex4RGBA));
@@ -781,14 +783,12 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		m_renderPass.begin(vk, *m_cmdBuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), (deUint32)attachmentClearValues.size(), attachmentClearValues.data());
 
 		//const VkDeviceSize		quadOffset		= (m_vertices.size() / (StencilTest::QUAD_COUNT*8)) * sizeof(Vertex4RGBA);
-		for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT*m_stencilOpStatesFront.size(); quadNdx++)
+		for (int quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
 		{
 			VkDeviceSize vertexBufferOffset = 0;//quadOffset * quadNdx;
-			auto vertexCount = (deUint32)(m_vertices.size() / (StencilTest::QUAD_COUNT*m_stencilOpStatesFront.size()));//FIXE: always 6
-
 			m_graphicsPipelines[quadNdx].bind(*m_cmdBuffer);
 			vk.cmdBindVertexBuffers(*m_cmdBuffer, 0, 1, &m_vertexBuffer.get(), &vertexBufferOffset);
-			vk.cmdDraw(*m_cmdBuffer, vertexCount, 1, (quadNdx*6), 0);
+			vk.cmdDraw(*m_cmdBuffer, 6, 1, (quadNdx*6), 0);
 		}
 
 		m_renderPass.end(vk, *m_cmdBuffer);
@@ -829,7 +829,7 @@ tcu::TestStatus StencilTestInstance::verifyImage (void)
 	}
 
 	// Render reference images
-	for (int i = 0; i < m_stencilOpStatesFront.size(); i++) {
+	for (size_t i = 0; i < m_stencilOpStatesFront.size(); i++) {
 		// Set depth state
 		rr::RenderState renderState(refRenderer.getViewportState(), m_context.getDeviceProperties().limits.subPixelPrecisionBits);
 
