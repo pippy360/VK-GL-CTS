@@ -687,9 +687,9 @@ StencilTestInstance::StencilTestInstance (Context&					context,
                     if ((row * max_cols) + col > statePermutations)
                         break;
 
-                    const float scale = 1.0/(max_rows);
-					const float offsetX = (scale*2*col)-1.0+(scale);
-					const float offsetY = (scale*2*row)-1.0+(scale);
+                    const float scale = 1.0f/((float)max_rows);
+					const float offsetX = (scale*2.0f*(float)col)-1.0f+(scale);
+					const float offsetY = (scale*2.0f*(float)row)-1.0f+(scale);
 					auto v = createOverlappingQuadsWith2dScaleAndTranslate(scale, tcu::Vec2(offsetX, offsetY));
 					res.insert(res.end(), v.begin(), v.end());
 				}
@@ -1520,24 +1520,24 @@ tcu::TestStatus NoStencilAttachmentInstance::iterate (void)
 
 // Utilities for test names
 
-const char* getShortName (VkStencilOp stencilOp)
-{
-	switch (stencilOp)
-	{
-		case VK_STENCIL_OP_KEEP:					return "keep";
-		case VK_STENCIL_OP_ZERO:					return "zero";
-		case VK_STENCIL_OP_REPLACE:					return "repl";
-		case VK_STENCIL_OP_INCREMENT_AND_CLAMP:		return "incc";
-		case VK_STENCIL_OP_DECREMENT_AND_CLAMP:		return "decc";
-		case VK_STENCIL_OP_INVERT:					return "inv";
-		case VK_STENCIL_OP_INCREMENT_AND_WRAP:		return "wrap";
-		case VK_STENCIL_OP_DECREMENT_AND_WRAP:		return "decw";
-
-		default:
-			DE_FATAL("Invalid VkStencilOpState value");
-	}
-	return DE_NULL;
-}
+// const char* getShortName (VkStencilOp stencilOp)
+// {
+// 	switch (stencilOp)
+// 	{
+// 		case VK_STENCIL_OP_KEEP:					return "keep";
+// 		case VK_STENCIL_OP_ZERO:					return "zero";
+// 		case VK_STENCIL_OP_REPLACE:					return "repl";
+// 		case VK_STENCIL_OP_INCREMENT_AND_CLAMP:		return "incc";
+// 		case VK_STENCIL_OP_DECREMENT_AND_CLAMP:		return "decc";
+// 		case VK_STENCIL_OP_INVERT:					return "inv";
+// 		case VK_STENCIL_OP_INCREMENT_AND_WRAP:		return "wrap";
+// 		case VK_STENCIL_OP_DECREMENT_AND_WRAP:		return "decw";
+//
+// 		default:
+// 			DE_FATAL("Invalid VkStencilOpState value");
+// 	}
+// 	return DE_NULL;
+// }
 
 std::string getFormatCaseName (VkFormat format)
 {
