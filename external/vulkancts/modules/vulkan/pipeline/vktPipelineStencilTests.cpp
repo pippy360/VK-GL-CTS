@@ -175,7 +175,7 @@ private:
 	std::vector<VkStencilOpState>		m_stencilOpStatesBack;
 	const bool							m_colorAttachmentEnable;
 	const bool							m_separateDepthStencilLayouts;
-	const tcu::UVec2					m_renderSize;
+	tcu::UVec2					m_renderSize;
 	const VkFormat						m_colorFormat;
 	const VkFormat						m_stencilFormat;
 	VkImageSubresourceRange				m_stencilImageSubresourceRange;
@@ -357,7 +357,6 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	, m_stencilOpStatesBack			(stencilOpStateBack)
 	, m_colorAttachmentEnable		(colorAttachmentEnable)
 	, m_separateDepthStencilLayouts	(separateDepthStencilLayouts)
-	, m_renderSize					(128, 128)
 	, m_colorFormat					(colorAttachmentEnable ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_UNDEFINED)
 	, m_stencilFormat				(stencilFormat)
 {
@@ -367,11 +366,12 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	SimpleAllocator				memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
 	const VkComponentMapping	componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
-
+    DE_ASSERT(m_stencilOpStatesFront.size() == m_stencilOpStatesBack.size());
     const size_t totalQuadCount = StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size();
-
+    deUint32 renderSize = ((deUint32) ceil(sqrt(m_stencilOpStatesFront.size())) * 32);
+    m_renderSize = tcu::UVec2(renderSize, renderSize);
 	m_graphicsPipelines.reserve(totalQuadCount);
-	for (int quadNdx = 0; quadNdx < totalQuadCount; ++quadNdx) {
+	for (size_t quadNdx = 0; quadNdx < totalQuadCount; ++quadNdx) {
 		m_graphicsPipelines.emplace_back(context.getInstanceInterface(),
 		                                 context.getDeviceInterface(),
 		                                 context.getPhysicalDevice(),
@@ -618,7 +618,6 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			{ 1.0f, 1.0f, 1.0f, 1.0f }										// float										blendConstants[4]
 		};
 
-		DE_ASSERT(m_stencilOpStatesFront.size() == m_stencilOpStatesBack.size());
 		for (size_t stencilOpNdx = 0; stencilOpNdx < m_stencilOpStatesFront.size(); stencilOpNdx++) {
 			VkPipelineDepthStencilStateCreateInfo depthStencilStateParams
 			{
@@ -676,22 +675,29 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 
 	// Create vertex buffer
 	{
-		auto createQuads = []() {
+		auto createQuads = [](size_t statePermutations) {
+            //FIXME: comment what is going on here
 			std::vector<Vertex4RGBA> res;
-			//FIXME: add asserts and defines
-			//FIXME:////
-			for (int row = 0; row < 2; row++) {
-				for (int col = 0; col < 4; col++) {
-					const float offsetX = ((float)col)*0.5f-0.75f;
-					const float offsetY = ((float)row)*1.0f-0.75f;
-					auto v = createOverlappingQuadsWith2dScaleAndTranslate(0.25f, tcu::Vec2(offsetX, offsetY));
+			size_t max_rows = (size_t)ceil(sqrt(statePermutations));
+			size_t max_cols = max_rows;
+            DE_ASSERT(max_rows > 0);
+			for (size_t row = 0; row < max_rows; row++) {
+				for (size_t col = 0; col < max_cols; col++) {
+                    //FIXME: comment
+                    if ((row * max_cols) + col > statePermutations)
+                        break;
+
+                    const float scale = 1.0/(max_rows);
+					const float offsetX = (scale*2*col)-1.0+(scale);
+					const float offsetY = (scale*2*row)-1.0+(scale);
+					auto v = createOverlappingQuadsWith2dScaleAndTranslate(scale, tcu::Vec2(offsetX, offsetY));
 					res.insert(res.end(), v.begin(), v.end());
 				}
 			}
 			return res;
 		};
 
-		m_vertices = createQuads();
+		m_vertices = createQuads(m_stencilOpStatesFront.size());
 
 		const VkBufferCreateInfo vertexBufferParams =
 		{
@@ -711,8 +717,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		VK_CHECK(vk.bindBufferMemory(vkDevice, *m_vertexBuffer, m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset()));
 
 		// Adjust depths
-		for (int quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
-			for (int vertexNdx = 0; vertexNdx < 6; vertexNdx++)
+		for (size_t quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
+			for (size_t vertexNdx = 0; vertexNdx < 6; vertexNdx++)
 				m_vertices[quadNdx * 6 + vertexNdx].position.z() = StencilTest::s_quadDepths[quadNdx % 4];
 
 		// Load vertices into vertex buffer
@@ -783,19 +789,19 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		m_renderPass.begin(vk, *m_cmdBuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), (deUint32)attachmentClearValues.size(), attachmentClearValues.data());
 
 		//const VkDeviceSize		quadOffset		= (m_vertices.size() / (StencilTest::QUAD_COUNT*8)) * sizeof(Vertex4RGBA);
-		for (int quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
+		for (size_t quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
 		{
 			VkDeviceSize vertexBufferOffset = 0;//quadOffset * quadNdx;
 			m_graphicsPipelines[quadNdx].bind(*m_cmdBuffer);
 			vk.cmdBindVertexBuffers(*m_cmdBuffer, 0, 1, &m_vertexBuffer.get(), &vertexBufferOffset);
-			vk.cmdDraw(*m_cmdBuffer, 6, 1, (quadNdx*6), 0);
+			vk.cmdDraw(*m_cmdBuffer, 6, 1, (int)(quadNdx*6), 0);
 		}
 
 		m_renderPass.end(vk, *m_cmdBuffer);
 		endCommandBuffer(vk, *m_cmdBuffer);
 	}
 }
-
+a
 tcu::TestStatus StencilTestInstance::iterate (void)
 {
 	const DeviceInterface&		vk			= m_context.getDeviceInterface();
@@ -1619,23 +1625,24 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 
 				stencilOpItr.reset();
 
+                const std::string				failOpName	= std::string("fail_") + std::string("__ALL__");
+                de::MovePtr<tcu::TestCaseGroup>	failOpTest	(new tcu::TestCaseGroup(testCtx, failOpName.c_str()));
+
+                const std::string				passOpName	= std::string("pass_") + std::string("__ALL__");
+                de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
+
+                const std::string				dFailOpName	= std::string("dfail_") + std::string("__ALL__");
+                de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
+                std::vector<VkStencilOpState> stencilStatesFront;
+                std::vector<VkStencilOpState> stencilStatesBack;
+
+
 				for (deUint32 failOpNdx = 0u; failOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); failOpNdx++)
 				{
-					const std::string				failOpName	= std::string("fail_") + getShortName(stencilOps[failOpNdx]);
-					de::MovePtr<tcu::TestCaseGroup>	failOpTest	(new tcu::TestCaseGroup(testCtx, failOpName.c_str()));
-
 					for (deUint32 passOpNdx = 0u; passOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); passOpNdx++)
 					{
-						const std::string				passOpName	= std::string("pass_") + getShortName(stencilOps[passOpNdx]);
-						de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
-
 						for (deUint32 dFailOpNdx = 0u; dFailOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); dFailOpNdx++)
 						{
-							const std::string				dFailOpName	= std::string("dfail_") + getShortName(stencilOps[dFailOpNdx]);
-							de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
-							std::vector<VkStencilOpState> stencilStatesFront;
-							std::vector<VkStencilOpState> stencilStatesBack;
-
 							for (deUint32 compareOpNdx = 0u; compareOpNdx < DE_LENGTH_OF_ARRAY(compareOps); compareOpNdx++)
 							{
 								// Iterate front set of stencil state in ascending order
@@ -1657,21 +1664,15 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 								stencilStatesFront.push_back(stencilStateFront);
 								stencilStatesBack.push_back(stencilStateBack);
 							}
-							constexpr auto getCompareOpsName = []() {
-								std::stringstream ss;
-								for (deUint32 compareOpNdx = 0u; compareOpNdx < DE_LENGTH_OF_ARRAY(compareOps); compareOpNdx++) {
-									ss << compareOpNames[compareOpNdx] << "__";
-								}
-								return ss.str();
-							};
-							const std::string		caseName			= getCompareOpsName();
-							dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
-							passOpTest->addChild(dFailOpTest.release());
 						}
-						failOpTest->addChild(passOpTest.release());
 					}
-					stencilStateTests->addChild(failOpTest.release());
 				}
+
+                const std::string caseName = std::string("__ALL__");
+                dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
+                passOpTest->addChild(dFailOpTest.release());
+                failOpTest->addChild(passOpTest.release());
+                stencilStateTests->addChild(failOpTest.release());
 
 				formatTest->addChild(stencilStateTests.release());
 				formatTests->addChild(formatTest.release());
