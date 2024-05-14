@@ -801,7 +801,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		endCommandBuffer(vk, *m_cmdBuffer);
 	}
 }
-a
+
 tcu::TestStatus StencilTestInstance::iterate (void)
 {
 	const DeviceInterface&		vk			= m_context.getDeviceInterface();
