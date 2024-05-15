@@ -681,8 +681,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
                                         .setupFragmentShaderState(m_pipelineLayouts[testStateNdx], *m_renderPasses[testStateNdx], 0u, m_fragmentShaderModules[testStateNdx], &depthStencilStateParams)
                                         .setupFragmentOutputState(*m_renderPasses[testStateNdx], 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
                                         .setMonolithicPipelineLayout(m_pipelineLayouts[testStateNdx])
-                                        .buildPipeline(
-                                        	cache);
+                                        .buildPipeline(*cache);
         }
         g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
 
@@ -1638,13 +1637,13 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 					{
 						const std::string				passOpName	= std::string("pass_") + getShortName(stencilOps[passOpNdx]);
 						de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
+                        const std::string				dFailOpName	= std::string("dfail_") + "__ALL__";//;getShortName(stencilOps[dFailOpNdx]);
+                        de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
+                        std::vector<VkStencilOpState> stencilStatesFront;
+                        std::vector<VkStencilOpState> stencilStatesBack;
 
 						for (deUint32 dFailOpNdx = 0u; dFailOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); dFailOpNdx++)
 						{
-							const std::string				dFailOpName	= std::string("dfail_") + getShortName(stencilOps[dFailOpNdx]);
-							de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
-							std::vector<VkStencilOpState> stencilStatesFront;
-							std::vector<VkStencilOpState> stencilStatesBack;
 							for (deUint32 compareOpNdx = 0u; compareOpNdx < DE_LENGTH_OF_ARRAY(compareOps); compareOpNdx++)
 							{
 								// Iterate front set of stencil state in ascending order
@@ -1664,11 +1663,12 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 								stencilStatesFront.push_back(stencilStateFront);
 								stencilStatesBack.push_back(stencilStateBack);
 							}
-							const std::string		caseName			= "__ALL__";
-							dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
-
-							passOpTest->addChild(dFailOpTest.release());
 						}
+                        const std::string		caseName			= "__ALL__";
+                        dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
+
+                        passOpTest->addChild(dFailOpTest.release());
+
 						failOpTest->addChild(passOpTest.release());
 					}
 					stencilStateTests->addChild(failOpTest.release());
