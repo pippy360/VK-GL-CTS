@@ -681,8 +681,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
                                         .setupFragmentShaderState(m_pipelineLayouts[testStateNdx], *m_renderPasses[testStateNdx], 0u, m_fragmentShaderModules[testStateNdx], &depthStencilStateParams)
                                         .setupFragmentOutputState(*m_renderPasses[testStateNdx], 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
                                         .setMonolithicPipelineLayout(m_pipelineLayouts[testStateNdx])
-                                        .buildPipeline(
-                                        	cache);
+                                        .buildPipeline(*cache);
         }
         g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
 
