@@ -159,33 +159,33 @@ private:
 	std::vector<VkStencilOpState>		m_stencilOpStatesBack;
 	const bool							m_colorAttachmentEnable;
 	const bool							m_separateDepthStencilLayouts;
-	const tcu::UVec2					m_renderSize;
+	tcu::UVec2					        m_renderSize;
 	const VkFormat						m_colorFormat;
 	const VkFormat						m_stencilFormat;
-	std::vector<VkImageSubresourceRange> m_stencilImageSubresourceRanges;
+	VkImageSubresourceRange             m_stencilImageSubresourceRange;
 
 	VkImageCreateInfo					m_colorImageCreateInfo;
-	std::vector<Move<VkImage>>			m_colorImages;
-	std::vector<de::MovePtr<Allocation>>	m_colorImageAllocs;
-	std::vector<Move<VkImage>>				m_stencilImages;
-	std::vector<de::MovePtr<Allocation>>	m_stencilImageAllocs;
-	std::vector<Move<VkImageView>>		m_colorAttachmentViews;
-	std::vector<Move<VkImageView>>		m_stencilAttachmentViews;
-	std::vector<RenderPassWrapper>		m_renderPasses;
-	//Move<VkFramebuffer>					m_framebuffer;
+	Move<VkImage>           			m_colorImage;
+	de::MovePtr<Allocation>	            m_colorImageAlloc;
+	Move<VkImage>				        m_stencilImage;
+	de::MovePtr<Allocation>	            m_stencilImageAlloc;
+	Move<VkImageView>		            m_colorAttachmentView;
+	Move<VkImageView>       		    m_stencilAttachmentView;
+	RenderPassWrapper		            m_renderPass;
+	Move<VkFramebuffer>					m_framebuffer;
 
-	std::vector<ShaderWrapper>			m_vertexShaderModules;
-	std::vector<ShaderWrapper>			m_fragmentShaderModules;
+	ShaderWrapper			            m_vertexShaderModule;
+	ShaderWrapper           			m_fragmentShaderModule;
 
-	std::vector<Move<VkBuffer>>			m_vertexBuffers;
-	std::vector<std::vector<Vertex4RGBA>> m_verticesList;
-	std::vector<de::MovePtr<Allocation>>  m_vertexBufferAllocs;
+	Move<VkBuffer>			            m_vertexBuffer;
+	std::vector<Vertex4RGBA>            m_vertices;
+	de::MovePtr<Allocation>             m_vertexBufferAlloc;
 
-	std::vector<PipelineLayoutWrapper>	 m_pipelineLayouts;
+	PipelineLayoutWrapper	 m_pipelineLayout;
 	std::vector<GraphicsPipelineWrapper> m_graphicsPipelines;
 
-	std::vector<Move<VkCommandPool>>	m_cmdPools;
-	std::vector<Move<VkCommandBuffer>>	m_cmdBuffers;
+	Move<VkCommandPool>	                 m_cmdPool;
+	Move<VkCommandBuffer>	             m_cmdBuffer;
 };
 
 const VkStencilOp stencilOps[] =
@@ -351,45 +351,194 @@ void StencilTest::initPrograms (SourceCollections& sourceCollections) const
 
 // StencilTestInstance
 
+// StencilTestInstance
+
 StencilTestInstance::StencilTestInstance (Context&					context,
 										  PipelineConstructionType	pipelineConstructionType,
 										  VkFormat					stencilFormat,
-										  const std::vector<VkStencilOpState>& stencilOpStatesFront,
-										  const std::vector<VkStencilOpState>& stencilOpStatesBack,
+										  const std::vector<VkStencilOpState>&	stencilOpStateFront,
+										  const std::vector<VkStencilOpState>&	stencilOpStateBack,
 										  const bool				colorAttachmentEnable,
 										  const bool				separateDepthStencilLayouts)
 	: vkt::TestInstance				(context)
-	, m_stencilOpStatesFront		(stencilOpStatesFront)
-	, m_stencilOpStatesBack			(stencilOpStatesBack)
+	, m_stencilOpStatesFront		(stencilOpStateFront)
+	, m_stencilOpStatesBack			(stencilOpStateBack)
 	, m_colorAttachmentEnable		(colorAttachmentEnable)
 	, m_separateDepthStencilLayouts	(separateDepthStencilLayouts)
-	, m_renderSize					(32, 32)
 	, m_colorFormat					(colorAttachmentEnable ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_UNDEFINED)
-	, m_stencilFormat				(stencilFormat) {
+	, m_stencilFormat				(stencilFormat)
+{
 	const DeviceInterface&		vk						= context.getDeviceInterface();
 	const VkDevice				vkDevice				= context.getDevice();
 	const deUint32				queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
 	SimpleAllocator				memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
 	const VkComponentMapping	componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
-	DE_ASSERT(m_stencilOpStatesFront.size() == m_stencilOpStatesBack.size());
-	const size_t totalQuadCount = StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size();
-
+    DE_ASSERT(m_stencilOpStatesFront.size() == m_stencilOpStatesBack.size());
+    const size_t totalQuadCount = StencilTest::QUAD_COUNT * m_stencilOpStatesFront.size();
+    deUint32 renderSize = ((deUint32) ceil(sqrt(m_stencilOpStatesFront.size())) * 32);
+    m_renderSize = tcu::UVec2(renderSize, renderSize);
 	m_graphicsPipelines.reserve(totalQuadCount);
-	m_renderPasses.reserve(m_stencilOpStatesFront.size());
-	m_colorImages.reserve(m_stencilOpStatesFront.size());
-	m_colorImageAllocs.reserve(m_stencilOpStatesFront.size());
-	m_stencilImages.reserve(m_stencilOpStatesFront.size());
-	m_stencilImageAllocs.reserve(m_stencilOpStatesFront.size());
-
 	for (size_t quadNdx = 0; quadNdx < totalQuadCount; ++quadNdx) {
 		m_graphicsPipelines.emplace_back(context.getInstanceInterface(),
-										 context.getDeviceInterface(),
-										 context.getPhysicalDevice(),
-										 context.getDevice(),
-										 context.getDeviceExtensions(),
-										 pipelineConstructionType);
+		                                 context.getDeviceInterface(),
+		                                 context.getPhysicalDevice(),
+		                                 context.getDevice(),
+		                                 context.getDeviceExtensions(),
+                                         pipelineConstructionType);
 	}
+
+	// Create color image
+	if (m_colorAttachmentEnable)
+	{
+		const VkImageCreateInfo colorImageParams =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,										// VkStructureType			sType;
+			DE_NULL,																	// const void*				pNext;
+			0u,																			// VkImageCreateFlags		flags;
+			VK_IMAGE_TYPE_2D,															// VkImageType				imageType;
+			m_colorFormat,																// VkFormat					format;
+			{ m_renderSize.x(), m_renderSize.y(), 1u },									// VkExtent3D				extent;
+			1u,																			// deUint32					mipLevels;
+			1u,																			// deUint32					arrayLayers;
+			VK_SAMPLE_COUNT_1_BIT,														// VkSampleCountFlagBits	samples;
+			VK_IMAGE_TILING_OPTIMAL,													// VkImageTiling			tiling;
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,		// VkImageUsageFlags		usage;
+			VK_SHARING_MODE_EXCLUSIVE,													// VkSharingMode			sharingMode;
+			1u,																			// deUint32					queueFamilyIndexCount;
+			&queueFamilyIndex,															// const deUint32*			pQueueFamilyIndices;
+			VK_IMAGE_LAYOUT_UNDEFINED													// VkImageLayout			initialLayout;
+		};
+
+		m_colorImageCreateInfo	= colorImageParams;
+		m_colorImage			= createImage(vk, vkDevice, &m_colorImageCreateInfo);
+
+		// Allocate and bind color image memory
+		m_colorImageAlloc		= memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_colorImage), MemoryRequirement::Any);
+		VK_CHECK(vk.bindImageMemory(vkDevice, *m_colorImage, m_colorImageAlloc->getMemory(), m_colorImageAlloc->getOffset()));
+	}
+
+	// Create stencil image
+	{
+		const VkImageUsageFlags	usageFlags			= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+		const VkImageCreateInfo	stencilImageParams	=
+		{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,			// VkStructureType			sType;
+			DE_NULL,										// const void*				pNext;
+			0u,												// VkImageCreateFlags		flags;
+			VK_IMAGE_TYPE_2D,								// VkImageType				imageType;
+			m_stencilFormat,								// VkFormat					format;
+			{ m_renderSize.x(), m_renderSize.y(), 1u },		// VkExtent3D				extent;
+			1u,												// deUint32					mipLevels;
+			1u,												// deUint32					arrayLayers;
+			VK_SAMPLE_COUNT_1_BIT,							// VkSampleCountFlagBits	samples;
+			VK_IMAGE_TILING_OPTIMAL,						// VkImageTiling			tiling;
+			usageFlags,										// VkImageUsageFlags		usage;
+			VK_SHARING_MODE_EXCLUSIVE,						// VkSharingMode			sharingMode;
+			1u,												// deUint32					queueFamilyIndexCount;
+			&queueFamilyIndex,								// const deUint32*			pQueueFamilyIndices;
+			VK_IMAGE_LAYOUT_UNDEFINED						// VkImageLayout			initialLayout;
+		};
+
+		m_stencilImage = createImage(vk, vkDevice, &stencilImageParams);
+
+		// Allocate and bind stencil image memory
+		m_stencilImageAlloc = memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_stencilImage), MemoryRequirement::Any);
+		VK_CHECK(vk.bindImageMemory(vkDevice, *m_stencilImage, m_stencilImageAlloc->getMemory(), m_stencilImageAlloc->getOffset()));
+
+		const VkImageAspectFlags aspect = (mapVkFormat(m_stencilFormat).order == tcu::TextureFormat::DS ? VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT
+																										: VK_IMAGE_ASPECT_STENCIL_BIT);
+		m_stencilImageSubresourceRange  = makeImageSubresourceRange(aspect, 0u, stencilImageParams.mipLevels, 0u, stencilImageParams.arrayLayers);
+	}
+
+	// Create color attachment view
+	if (m_colorAttachmentEnable)
+	{
+		const VkImageViewCreateInfo colorAttachmentViewParams =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
+			DE_NULL,											// const void*				pNext;
+			0u,													// VkImageViewCreateFlags	flags;
+			*m_colorImage,										// VkImage					image;
+			VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
+			m_colorFormat,										// VkFormat					format;
+			componentMappingRGBA,								// VkComponentMapping		components;
+			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }		// VkImageSubresourceRange	subresourceRange;
+		};
+
+		m_colorAttachmentView = createImageView(vk, vkDevice, &colorAttachmentViewParams);
+	}
+
+	// Create stencil attachment view
+	{
+		const VkImageViewCreateInfo stencilAttachmentViewParams =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
+			DE_NULL,											// const void*				pNext;
+			0u,													// VkImageViewCreateFlags	flags;
+			*m_stencilImage,									// VkImage					image;
+			VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
+			m_stencilFormat,									// VkFormat					format;
+			componentMappingRGBA,								// VkComponentMapping		components;
+			m_stencilImageSubresourceRange,						// VkImageSubresourceRange	subresourceRange;
+		};
+
+		m_stencilAttachmentView = createImageView(vk, vkDevice, &stencilAttachmentViewParams);
+	}
+
+	// Create render pass
+	m_renderPass = RenderPassWrapper(pipelineConstructionType, vk, vkDevice, m_colorFormat, m_stencilFormat);
+
+	// Create framebuffer
+	{
+		std::vector<VkImage>			images;
+		std::vector<VkImageView>		attachmentBindInfos;
+
+		if (m_colorAttachmentEnable)
+		{
+			images.push_back(*m_colorImage);
+			attachmentBindInfos.push_back(*m_colorAttachmentView);
+		}
+
+		images.push_back(*m_stencilImage);
+		attachmentBindInfos.push_back(*m_stencilAttachmentView);
+
+		const VkFramebufferCreateInfo	framebufferParams =
+		{
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,			// VkStructureType			sType;
+			DE_NULL,											// const void*				pNext;
+			0u,													// VkFramebufferCreateFlags	flags;
+			*m_renderPass,										// VkRenderPass				renderPass;
+			(deUint32)attachmentBindInfos.size(),				// deUint32					attachmentCount;
+			attachmentBindInfos.data(),							// const VkImageView*		pAttachments;
+			(deUint32)m_renderSize.x(),							// deUint32					width;
+			(deUint32)m_renderSize.y(),							// deUint32					height;
+			1u													// deUint32					layers;
+		};
+
+		m_renderPass.createFramebuffer(vk, vkDevice, &framebufferParams, images);
+	}
+
+	// Create pipeline layout
+	{
+		const VkPipelineLayoutCreateInfo pipelineLayoutParams =
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType				sType;
+			DE_NULL,											// const void*					pNext;
+			0u,													// VkPipelineLayoutCreateFlags	flags;
+			0u,													// deUint32						setLayoutCount;
+			DE_NULL,											// const VkDescriptorSetLayout*	pSetLayouts;
+			0u,													// deUint32						pushConstantRangeCount;
+			DE_NULL												// const VkPushConstantRange*	pPushConstantRanges;
+		};
+
+		m_pipelineLayout = PipelineLayoutWrapper(pipelineConstructionType, vk, vkDevice, &pipelineLayoutParams);
+	}
+
+	m_vertexShaderModule		= ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_vert"), 0);
+	if (m_colorAttachmentEnable)
+		m_fragmentShaderModule	= ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_frag"), 0);
 
 	const VkPipelineCacheCreateInfo pipelineCacheCreateInfo =
 	{
@@ -401,155 +550,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	};
 
 	Move<VkPipelineCache> cache = createPipelineCache(vk, vkDevice, &pipelineCacheCreateInfo);
-	for (size_t testStateNdx = 0; testStateNdx < m_stencilOpStatesFront.size(); testStateNdx++) {
-		// Create color image
-		if (m_colorAttachmentEnable)
-		{
-			const VkImageCreateInfo colorImageParams =
-			{
-				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,										// VkStructureType			sType;
-				DE_NULL,																	// const void*				pNext;
-				0u,																			// VkImageCreateFlags		flags;
-				VK_IMAGE_TYPE_2D,															// VkImageType				imageType;
-				m_colorFormat,																// VkFormat					format;
-				{ m_renderSize.x(), m_renderSize.y(), 1u },									// VkExtent3D				extent;
-				1u,																			// deUint32					mipLevels;
-				1u,																			// deUint32					arrayLayers;
-				VK_SAMPLE_COUNT_1_BIT,														// VkSampleCountFlagBits	samples;
-				VK_IMAGE_TILING_OPTIMAL,													// VkImageTiling			tiling;
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,		// VkImageUsageFlags		usage;
-				VK_SHARING_MODE_EXCLUSIVE,													// VkSharingMode			sharingMode;
-				1u,																			// deUint32					queueFamilyIndexCount;
-				&queueFamilyIndex,															// const deUint32*			pQueueFamilyIndices;
-				VK_IMAGE_LAYOUT_UNDEFINED													// VkImageLayout			initialLayout;
-			};
-
-			m_colorImageCreateInfo	= colorImageParams;
-			m_colorImages.push_back(createImage(vk, vkDevice, &m_colorImageCreateInfo));
-
-			// Allocate and bind color image memory
-			m_colorImageAllocs.push_back(memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_colorImages[testStateNdx]), MemoryRequirement::Any));
-			VK_CHECK(vk.bindImageMemory(vkDevice, *m_colorImages[testStateNdx], m_colorImageAllocs[testStateNdx]->getMemory(), m_colorImageAllocs[testStateNdx]->getOffset()));
-		}
-
-		// Create stencil image
-		{
-			const VkImageUsageFlags	usageFlags			= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-			const VkImageCreateInfo	stencilImageParams	=
-			{
-				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,			// VkStructureType			sType;
-				DE_NULL,										// const void*				pNext;
-				0u,												// VkImageCreateFlags		flags;
-				VK_IMAGE_TYPE_2D,								// VkImageType				imageType;
-				m_stencilFormat,								// VkFormat					format;
-				{ m_renderSize.x(), m_renderSize.y(), 1u },		// VkExtent3D				extent;
-				1u,												// deUint32					mipLevels;
-				1u,												// deUint32					arrayLayers;
-				VK_SAMPLE_COUNT_1_BIT,							// VkSampleCountFlagBits	samples;
-				VK_IMAGE_TILING_OPTIMAL,						// VkImageTiling			tiling;
-				usageFlags,										// VkImageUsageFlags		usage;
-				VK_SHARING_MODE_EXCLUSIVE,						// VkSharingMode			sharingMode;
-				1u,												// deUint32					queueFamilyIndexCount;
-				&queueFamilyIndex,								// const deUint32*			pQueueFamilyIndices;
-				VK_IMAGE_LAYOUT_UNDEFINED						// VkImageLayout			initialLayout;
-			};
-
-			m_stencilImages.push_back(createImage(vk, vkDevice, &stencilImageParams));
-
-			// Allocate and bind stencil image memory
-			m_stencilImageAllocs.push_back(memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_stencilImages[testStateNdx]), MemoryRequirement::Any));
-			VK_CHECK(vk.bindImageMemory(vkDevice, *m_stencilImages[testStateNdx], m_stencilImageAllocs[testStateNdx]->getMemory(), m_stencilImageAllocs[testStateNdx]->getOffset()));
-
-			const VkImageAspectFlags aspect = (mapVkFormat(m_stencilFormat).order == tcu::TextureFormat::DS ? VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT
-																											: VK_IMAGE_ASPECT_STENCIL_BIT);
-			m_stencilImageSubresourceRanges.push_back(makeImageSubresourceRange(aspect, 0u, stencilImageParams.mipLevels, 0u, stencilImageParams.arrayLayers));
-		}
-
-		// Create color attachment view
-		if (m_colorAttachmentEnable)
-		{
-			const VkImageViewCreateInfo colorAttachmentViewParams =
-			{
-				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
-				DE_NULL,											// const void*				pNext;
-				0u,													// VkImageViewCreateFlags	flags;
-				*m_colorImages[testStateNdx],										// VkImage					image;
-				VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
-				m_colorFormat,										// VkFormat					format;
-				componentMappingRGBA,								// VkComponentMapping		components;
-				{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }		// VkImageSubresourceRange	subresourceRange;
-			};
-
-			m_colorAttachmentViews.push_back(createImageView(vk, vkDevice, &colorAttachmentViewParams));
-		}
-
-		// Create stencil attachment view
-		{
-			const VkImageViewCreateInfo stencilAttachmentViewParams =
-			{
-				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
-				DE_NULL,											// const void*				pNext;
-				0u,													// VkImageViewCreateFlags	flags;
-				*m_stencilImages[testStateNdx],						// VkImage					image;
-				VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
-				m_stencilFormat,									// VkFormat					format;
-				componentMappingRGBA,								// VkComponentMapping		components;
-				m_stencilImageSubresourceRanges[testStateNdx],						// VkImageSubresourceRange	subresourceRange;
-			};
-
-			m_stencilAttachmentViews.push_back(createImageView(vk, vkDevice, &stencilAttachmentViewParams));
-		}
-
-		m_renderPasses.push_back(RenderPassWrapper(pipelineConstructionType, vk, vkDevice, m_colorFormat, m_stencilFormat));
-
-		std::vector<VkImage>			images;
-		std::vector<VkImageView>		attachmentBindInfos;
-
-		if (m_colorAttachmentEnable)
-		{
-			images.push_back(*m_colorImages[testStateNdx]);
-			attachmentBindInfos.push_back(*m_colorAttachmentViews[testStateNdx]);
-		}
-
-		images.push_back(*m_stencilImages[testStateNdx]);
-		attachmentBindInfos.push_back(*m_stencilAttachmentViews[testStateNdx]);
-
-		const VkFramebufferCreateInfo	framebufferParams =
-		{
-			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,			// VkStructureType			sType;
-			DE_NULL,											// const void*				pNext;
-			0u,													// VkFramebufferCreateFlags	flags;
-			*m_renderPasses[testStateNdx],						// VkRenderPass				renderPass;
-			(deUint32)attachmentBindInfos.size(),				// deUint32					attachmentCount;
-			attachmentBindInfos.data(),							// const VkImageView*		pAttachments;
-			(deUint32)m_renderSize.x(),							// deUint32					width;
-			(deUint32)m_renderSize.y(),							// deUint32					height;
-			1u													// deUint32					layers;
-		};
-
-		m_renderPasses[testStateNdx].createFramebuffer(vk, vkDevice, &framebufferParams, images);
-
-        // Create pipeline layout
-        {
-            const VkPipelineLayoutCreateInfo pipelineLayoutParams =
-            {
-                VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType				sType;
-                DE_NULL,											// const void*					pNext;
-                0u,													// VkPipelineLayoutCreateFlags	flags;
-                0u,													// deUint32						setLayoutCount;
-                DE_NULL,											// const VkDescriptorSetLayout*	pSetLayouts;
-                0u,													// deUint32						pushConstantRangeCount;
-                DE_NULL												// const VkPushConstantRange*	pPushConstantRanges;
-            };
-
-            m_pipelineLayouts.push_back(PipelineLayoutWrapper(pipelineConstructionType, vk, vkDevice, &pipelineLayoutParams));
-        }
-
-        m_vertexShaderModules.push_back(ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_vert"), 0));
-        if (m_colorAttachmentEnable)
-            m_fragmentShaderModules.push_back(ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_frag"), 0));
-
+	// Create pipeline
+	{
 		const VkVertexInputBindingDescription vertexInputBindingDescription
 		{
 			0u,										// deUint32					binding;
@@ -587,6 +589,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		const std::vector<VkViewport>	viewports	{ makeViewport(m_renderSize) };
 		const std::vector<VkRect2D>		scissors	{ makeRect2D(m_renderSize) };
 
+		const bool isDepthEnabled = (vk::mapVkFormat(m_stencilFormat).order != tcu::TextureFormat::S);
+
 		// Make sure rasterization is not disabled when the fragment shader is missing.
 		const vk::VkPipelineRasterizationStateCreateInfo rasterizationStateParams
 		{
@@ -620,6 +624,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			VK_COLOR_COMPONENT_A_BIT,
 
 		};
+
 		const vk::VkPipelineColorBlendStateCreateInfo colorBlendStateParams
 		{
 			vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	// VkStructureType								sType
@@ -632,91 +637,121 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			{ 1.0f, 1.0f, 1.0f, 1.0f }										// float										blendConstants[4]
 		};
 
-		const bool isDepthEnabled = (vk::mapVkFormat(m_stencilFormat).order != tcu::TextureFormat::S);
+		for (size_t stencilOpNdx = 0; stencilOpNdx < m_stencilOpStatesFront.size(); stencilOpNdx++) {
+			VkPipelineDepthStencilStateCreateInfo depthStencilStateParams
+			{
+				VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,	// VkStructureType							sType;
+				DE_NULL,													// const void*								pNext;
+				0u,															// VkPipelineDepthStencilStateCreateFlags	flags;
+				isDepthEnabled,												// VkBool32									depthTestEnable;
+				isDepthEnabled,												// VkBool32									depthWriteEnable;
+				VK_COMPARE_OP_LESS,											// VkCompareOp								depthCompareOp;
+				false,														// VkBool32									depthBoundsTestEnable;
+				true,														// VkBool32									stencilTestEnable;
+				// FIXME:
+				m_stencilOpStatesFront[stencilOpNdx],						// VkStencilOpState							front;
+				m_stencilOpStatesBack[stencilOpNdx],						// VkStencilOpState							back;
+				0.0f,														// float									minDepthBounds;
+				1.0f														// float									maxDepthBounds;
+			};
 
+            auto start = high_resolution_clock::now();
+			// Setup different stencil masks and refs in each quad
+			for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT; quadNdx++)
+			{
+				const StencilTest::StencilStateConfig&	config	= StencilTest::s_stencilStateConfigs[quadNdx];
+				VkStencilOpState&						front	= depthStencilStateParams.front;
+				VkStencilOpState&						back	= depthStencilStateParams.back;
 
-        VkPipelineDepthStencilStateCreateInfo depthStencilStateParams
-        {
-            VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,	// VkStructureType							sType;
-            DE_NULL,													// const void*								pNext;
-            0u,															// VkPipelineDepthStencilStateCreateFlags	flags;
-            isDepthEnabled,												// VkBool32									depthTestEnable;
-            isDepthEnabled,												// VkBool32									depthWriteEnable;
-            VK_COMPARE_OP_LESS,											// VkCompareOp								depthCompareOp;
-            false,														// VkBool32									depthBoundsTestEnable;
-            true,														// VkBool32									stencilTestEnable;
-            m_stencilOpStatesFront[testStateNdx],						// VkStencilOpState							front;
-            m_stencilOpStatesBack[testStateNdx],							// VkStencilOpState							back;
-            0.0f,														// float									minDepthBounds;
-            1.0f														// float									maxDepthBounds;
-        };
+				front.compareMask	= config.frontReadMask;
+				front.writeMask		= config.frontWriteMask;
+				front.reference		= config.frontRef;
 
-        auto start = high_resolution_clock::now();
-        // Setup different stencil masks and refs in each quad
-        for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT; quadNdx++)
-        {
-            const StencilTest::StencilStateConfig&	config	= StencilTest::s_stencilStateConfigs[quadNdx];
-            VkStencilOpState&						front	= depthStencilStateParams.front;
-            VkStencilOpState&						back	= depthStencilStateParams.back;
+				back.compareMask	= config.backReadMask;
+				back.writeMask		= config.backWriteMask;
+				back.reference		= config.backRef;
 
-            front.compareMask	= config.frontReadMask;
-            front.writeMask		= config.frontWriteMask;
-            front.reference		= config.frontRef;
+				//FIXME: clean up all these difference sizes
+                const size_t currentQuadNdx = (stencilOpNdx*StencilTest::QUAD_COUNT) + quadNdx;
+				m_graphicsPipelines[currentQuadNdx]
+					.setDefaultRasterizerDiscardEnable(!m_colorAttachmentEnable)
+					.setDefaultMultisampleState()
+					.setupVertexInputState(&vertexInputStateParams)
+					.setupPreRasterizationShaderState(viewports,
+													  scissors,
+													  m_pipelineLayout,
+													  *m_renderPass,
+													  0u,
+													  m_vertexShaderModule,
+													  &rasterizationStateParams)
+					.setupFragmentShaderState(m_pipelineLayout, *m_renderPass, 0u, m_fragmentShaderModule, &depthStencilStateParams)
+					.setupFragmentOutputState(*m_renderPass, 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
+					.setMonolithicPipelineLayout(m_pipelineLayout)
+					.buildPipeline(*cache);
+			}
+            g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
+		}
 
-            back.compareMask	= config.backReadMask;
-            back.writeMask		= config.backWriteMask;
-            back.reference		= config.backRef;
+	}
 
-            const size_t pipelineNdx = (testStateNdx * StencilTest::QUAD_COUNT) + quadNdx;
-            m_graphicsPipelines[pipelineNdx].setDefaultRasterizerDiscardEnable(!m_colorAttachmentEnable)
-                                        .setDefaultMultisampleState()
-                                        .setupVertexInputState(&vertexInputStateParams)
-                                        .setupPreRasterizationShaderState(viewports,
-                                                                          scissors,
-                                                                          m_pipelineLayouts[testStateNdx],
-                                                                          *m_renderPasses[testStateNdx],
-                                                                          0u,
-                                                                          m_vertexShaderModules[testStateNdx],
-                                                                          &rasterizationStateParams)
-                                        .setupFragmentShaderState(m_pipelineLayouts[testStateNdx], *m_renderPasses[testStateNdx], 0u, m_fragmentShaderModules[testStateNdx], &depthStencilStateParams)
-                                        .setupFragmentOutputState(*m_renderPasses[testStateNdx], 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
-                                        .setMonolithicPipelineLayout(m_pipelineLayouts[testStateNdx])
-                                        .buildPipeline(*cache);
-        }
-        g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
+	// Create vertex buffer
+	{
+		auto createQuads = [](size_t statePermutations) {
+            //FIXME: comment what is going on here
+			std::vector<Vertex4RGBA> res;
+			size_t max_rows = (size_t)ceil(sqrt(statePermutations));
+			size_t max_cols = max_rows;
+            DE_ASSERT(max_rows > 0);
+			for (size_t row = 0; row < max_rows; row++) {
+				for (size_t col = 0; col < max_cols; col++) {
+                    //FIXME: comment
+                    if ((row * max_cols) + col > statePermutations)
+                        break;
 
-        // Create vertex buffer
-        {
-            const VkBufferCreateInfo vertexBufferParams =
-            {
-                VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// VkStructureType		sType;
-                DE_NULL,									// const void*			pNext;
-                0u,											// VkBufferCreateFlags	flags;
-                1024u,										// VkDeviceSize			size;
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,			// VkBufferUsageFlags	usage;
-                VK_SHARING_MODE_EXCLUSIVE,					// VkSharingMode		sharingMode;
-                1u,											// deUint32				queueFamilyIndexCount;
-                &queueFamilyIndex							// const deUint32*		pQueueFamilyIndices;
-            };
+                    const float scale = 1.0f/((float)max_rows);
+					const float offsetX = (scale*2.0f*(float)col)-1.0f+(scale);
+					const float offsetY = (scale*2.0f*(float)row)-1.0f+(scale);
+					auto v = createOverlappingQuadsWith2dScaleAndTranslate(scale, tcu::Vec2(offsetX, offsetY));
+					res.insert(res.end(), v.begin(), v.end());
+				}
+			}
+			return res;
+		};
 
-            m_verticesList.push_back(createOverlappingQuads());
-            m_vertexBuffers.push_back(createBuffer(vk, vkDevice, &vertexBufferParams));
-            m_vertexBufferAllocs.push_back(memAlloc.allocate(getBufferMemoryRequirements(vk, vkDevice, *m_vertexBuffers[testStateNdx]), MemoryRequirement::HostVisible));
+		m_vertices = createQuads(m_stencilOpStatesFront.size());
 
-            VK_CHECK(vk.bindBufferMemory(vkDevice, *m_vertexBuffers[testStateNdx], m_vertexBufferAllocs[testStateNdx]->getMemory(), m_vertexBufferAllocs[testStateNdx]->getOffset()));
+		const VkBufferCreateInfo vertexBufferParams =
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// VkStructureType		sType;
+			DE_NULL,									// const void*			pNext;
+			0u,											// VkBufferCreateFlags	flags;
+			m_vertices.size() * sizeof(Vertex4RGBA)+4000,	// VkDeviceSize			size;
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,			// VkBufferUsageFlags	usage;
+			VK_SHARING_MODE_EXCLUSIVE,					// VkSharingMode		sharingMode;
+			1u,											// deUint32				queueFamilyIndexCount;
+			&queueFamilyIndex							// const deUint32*		pQueueFamilyIndices;
+		};
 
-            // Adjust depths
-            for (int quadNdx = 0; quadNdx < 4; quadNdx++)
-                for (int vertexNdx = 0; vertexNdx < 6; vertexNdx++)
-                    m_verticesList[testStateNdx][quadNdx * 6 + vertexNdx].position.z() = StencilTest::s_quadDepths[quadNdx];
+		m_vertexBuffer		= createBuffer(vk, vkDevice, &vertexBufferParams);
+		m_vertexBufferAlloc	= memAlloc.allocate(getBufferMemoryRequirements(vk, vkDevice, *m_vertexBuffer), MemoryRequirement::HostVisible);
 
-            // Load vertices into vertex buffer
-            deMemcpy(m_vertexBufferAllocs[testStateNdx]->getHostPtr(), m_verticesList[testStateNdx].data(), m_verticesList[testStateNdx].size() * sizeof(Vertex4RGBA));
-            flushAlloc(vk, vkDevice, *m_vertexBufferAllocs[testStateNdx]);
-        }
+		VK_CHECK(vk.bindBufferMemory(vkDevice, *m_vertexBuffer, m_vertexBufferAlloc->getMemory(), m_vertexBufferAlloc->getOffset()));
 
-		m_cmdPools.push_back(createCommandPool(vk, vkDevice, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex));
+		// Adjust depths
+		for (size_t quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
+			for (size_t vertexNdx = 0; vertexNdx < 6; vertexNdx++)
+				m_vertices[quadNdx * 6 + vertexNdx].position.z() = StencilTest::s_quadDepths[quadNdx % 4];
 
+		// Load vertices into vertex buffer
+		deMemcpy(m_vertexBufferAlloc->getHostPtr(), m_vertices.data(), m_vertices.size() * sizeof(Vertex4RGBA));
+		flushAlloc(vk, vkDevice, *m_vertexBufferAlloc);
+	}
+
+	// Create command pool
+	m_cmdPool = createCommandPool(vk, vkDevice, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+
+	// Create command buffer
+	{
 		const VkImageMemoryBarrier	colorImageBarrier					=
 		{
 			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType            sType;
@@ -727,11 +762,11 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		// VkImageLayout              newLayout;
 			VK_QUEUE_FAMILY_IGNORED,						// uint32_t                   srcQueueFamilyIndex;
 			VK_QUEUE_FAMILY_IGNORED,						// uint32_t                   dstQueueFamilyIndex;
-			*m_colorImages[testStateNdx],									// VkImage                    image;
+			*m_colorImage,									// VkImage                    image;
 			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }	// VkImageSubresourceRange    subresourceRange;
 		};
 
-		VkImageSubresourceRange		stencilImageBarrierSubresourceRange	= m_stencilImageSubresourceRanges[testStateNdx];
+		VkImageSubresourceRange		stencilImageBarrierSubresourceRange	= m_stencilImageSubresourceRange;
 		VkImageLayout				newLayout							= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		if (m_separateDepthStencilLayouts)
 		{
@@ -749,7 +784,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			newLayout,																// VkImageLayout              newLayout;
 			VK_QUEUE_FAMILY_IGNORED,												// uint32_t                   srcQueueFamilyIndex;
 			VK_QUEUE_FAMILY_IGNORED,												// uint32_t                   dstQueueFamilyIndex;
-			*m_stencilImages[testStateNdx],											// VkImage                    image;
+			*m_stencilImage,														// VkImage                    image;
 			stencilImageBarrierSubresourceRange,									// VkImageSubresourceRange    subresourceRange;
 		};
 
@@ -765,30 +800,28 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		attachmentClearValues.push_back(defaultClearValue(m_stencilFormat));
 		imageLayoutBarriers.push_back(stencilImageBarrier);
 
-		m_cmdBuffers.push_back(allocateCommandBuffer(vk, vkDevice, *m_cmdPools[testStateNdx], VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+		m_cmdBuffer = allocateCommandBuffer(vk, vkDevice, *m_cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		beginCommandBuffer(vk, *m_cmdBuffers[testStateNdx], 0u);
+		beginCommandBuffer(vk, *m_cmdBuffer, 0u);
 
-		vk.cmdPipelineBarrier(*m_cmdBuffers[testStateNdx], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, (VkDependencyFlags)0,
+		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, (VkDependencyFlags)0,
 			0u, DE_NULL, 0u, DE_NULL, (deUint32)imageLayoutBarriers.size(), imageLayoutBarriers.data());
 
-		m_renderPasses[testStateNdx].begin(vk, *m_cmdBuffers[testStateNdx], makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), (deUint32)attachmentClearValues.size(), attachmentClearValues.data());
+		m_renderPass.begin(vk, *m_cmdBuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), (deUint32)attachmentClearValues.size(), attachmentClearValues.data());
 
-		const VkDeviceSize		quadOffset		= (m_verticesList[testStateNdx].size() / StencilTest::QUAD_COUNT) * sizeof(Vertex4RGBA);
-
-		for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT; quadNdx++)
+		//const VkDeviceSize		quadOffset		= (m_vertices.size() / (StencilTest::QUAD_COUNT*8)) * sizeof(Vertex4RGBA);
+		for (size_t quadNdx = 0; quadNdx < totalQuadCount; quadNdx++)
 		{
-			VkDeviceSize vertexBufferOffset = quadOffset * quadNdx;
-
-            const size_t pipelineNdx = (testStateNdx * StencilTest::QUAD_COUNT) + quadNdx;
-			m_graphicsPipelines[pipelineNdx].bind(*m_cmdBuffers[testStateNdx]);
-			vk.cmdBindVertexBuffers(*m_cmdBuffers[testStateNdx], 0, 1, &m_vertexBuffers[testStateNdx].get(), &vertexBufferOffset);
-			vk.cmdDraw(*m_cmdBuffers[testStateNdx], (deUint32)(m_verticesList[testStateNdx].size() / StencilTest::QUAD_COUNT), 1, 0, 0);
+			VkDeviceSize vertexBufferOffset = 0;//quadOffset * quadNdx;
+			m_graphicsPipelines[quadNdx].bind(*m_cmdBuffer);
+			vk.cmdBindVertexBuffers(*m_cmdBuffer, 0, 1, &m_vertexBuffer.get(), &vertexBufferOffset);
+			vk.cmdDraw(*m_cmdBuffer, 6, 1, (int)(quadNdx*6), 0);
 		}
 
-		m_renderPasses[testStateNdx].end(vk, *m_cmdBuffers[testStateNdx]);
-		endCommandBuffer(vk, *m_cmdBuffers[testStateNdx]);
+		m_renderPass.end(vk, *m_cmdBuffer);
+		endCommandBuffer(vk, *m_cmdBuffer);
 	}
+
 }
 
 tcu::TestStatus StencilTestInstance::iterate (void)
@@ -799,9 +832,7 @@ tcu::TestStatus StencilTestInstance::iterate (void)
 
     auto start = high_resolution_clock::now();
 
-	for (size_t testStateNdx = 0; testStateNdx < m_stencilOpStatesFront.size(); testStateNdx++) {
-		submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffers[testStateNdx].get());
-	}
+    submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
 
     g_timeTakenToDraw_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
 
@@ -815,18 +846,27 @@ tcu::TestStatus StencilTestInstance::iterate (void)
 
 tcu::TestStatus StencilTestInstance::verifyImage (void)
 {
-    bool						colorCompareOk		= false;
-    bool						stencilCompareOk	= false;
-	// Render reference image
-	for (size_t testStateNdx = 0; testStateNdx < m_stencilOpStatesFront.size(); testStateNdx++) {
-        const tcu::TextureFormat	tcuColorFormat		= mapVkFormat(VK_FORMAT_R8G8B8A8_UNORM);
-        const tcu::TextureFormat	tcuStencilFormat	= mapVkFormat(m_stencilFormat);
-        const ColorVertexShader		vertexShader;
-        const ColorFragmentShader	fragmentShader		(tcuColorFormat, tcuStencilFormat);
-        const rr::Program			program				(&vertexShader, &fragmentShader);
+    const tcu::TextureFormat	tcuColorFormat		= mapVkFormat(VK_FORMAT_R8G8B8A8_UNORM);
+	const tcu::TextureFormat	tcuStencilFormat	= mapVkFormat(m_stencilFormat);
+	const ColorVertexShader		vertexShader;
+	const ColorFragmentShader	fragmentShader		(tcuColorFormat, tcuStencilFormat);
+	const rr::Program			program				(&vertexShader, &fragmentShader);
+	ReferenceRenderer			refRenderer			(m_renderSize.x(), m_renderSize.y(), 1, tcuColorFormat, tcuStencilFormat, &program);
+	bool						colorCompareOk		= false;
+	bool						stencilCompareOk	= false;
 
-    	ReferenceRenderer			refRenderer			(m_renderSize.x(), m_renderSize.y(), 1, tcuColorFormat, tcuStencilFormat, &program);
+	// Reverse winding of vertices, as Vulkan screen coordinates start at upper left
+	std::vector<Vertex4RGBA> cwVertices(m_vertices);
+	for (size_t vertexNdx = 0; vertexNdx < cwVertices.size() - 2; vertexNdx += 3)
+	{
+		const Vertex4RGBA cwVertex1	= cwVertices[vertexNdx + 1];
 
+		cwVertices[vertexNdx + 1]	= cwVertices[vertexNdx + 2];
+		cwVertices[vertexNdx + 2]	= cwVertex1;
+	}
+
+	// Render reference images
+	for (size_t i = 0; i < m_stencilOpStatesFront.size(); i++) {
 		// Set depth state
 		rr::RenderState renderState(refRenderer.getViewportState(), m_context.getDeviceProperties().limits.subPixelPrecisionBits);
 
@@ -837,25 +877,16 @@ tcu::TestStatus StencilTestInstance::verifyImage (void)
 		rr::StencilState& refStencilFront	= renderState.fragOps.stencilStates[rr::FACETYPE_FRONT];
 		rr::StencilState& refStencilBack	= renderState.fragOps.stencilStates[rr::FACETYPE_BACK];
 
-		refStencilFront.sFail		= mapVkStencilOp(m_stencilOpStatesFront[testStateNdx].failOp);
-		refStencilFront.dpFail		= mapVkStencilOp(m_stencilOpStatesFront[testStateNdx].depthFailOp);
-		refStencilFront.dpPass		= mapVkStencilOp(m_stencilOpStatesFront[testStateNdx].passOp);
-		refStencilFront.func		= mapVkCompareOp(m_stencilOpStatesFront[testStateNdx].compareOp);
+		//FIXME: use i
+		refStencilFront.sFail		= mapVkStencilOp(m_stencilOpStatesFront[i].failOp);
+		refStencilFront.dpFail		= mapVkStencilOp(m_stencilOpStatesFront[i].depthFailOp);
+		refStencilFront.dpPass		= mapVkStencilOp(m_stencilOpStatesFront[i].passOp);
+		refStencilFront.func		= mapVkCompareOp(m_stencilOpStatesFront[i].compareOp);
 
-		refStencilBack.sFail		= mapVkStencilOp(m_stencilOpStatesBack[testStateNdx].failOp);
-		refStencilBack.dpPass		= mapVkStencilOp(m_stencilOpStatesBack[testStateNdx].passOp);
-		refStencilBack.dpFail		= mapVkStencilOp(m_stencilOpStatesBack[testStateNdx].depthFailOp);
-		refStencilBack.func			= mapVkCompareOp(m_stencilOpStatesBack[testStateNdx].compareOp);
-
-		// Reverse winding of vertices, as Vulkan screen coordinates start at upper left
-		std::vector<Vertex4RGBA> cwVertices(m_verticesList[testStateNdx]);
-		for (size_t vertexNdx = 0; vertexNdx < cwVertices.size() - 2; vertexNdx += 3)
-		{
-			const Vertex4RGBA cwVertex1	= cwVertices[vertexNdx + 1];
-
-			cwVertices[vertexNdx + 1]	= cwVertices[vertexNdx + 2];
-			cwVertices[vertexNdx + 2]	= cwVertex1;
-		}
+		refStencilBack.sFail		= mapVkStencilOp(m_stencilOpStatesBack[i].failOp);
+		refStencilBack.dpPass		= mapVkStencilOp(m_stencilOpStatesBack[i].passOp);
+		refStencilBack.dpFail		= mapVkStencilOp(m_stencilOpStatesBack[i].depthFailOp);
+		refStencilBack.func			= mapVkCompareOp(m_stencilOpStatesBack[i].compareOp);
 
 		for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT; quadNdx++)
 		{
@@ -867,61 +898,60 @@ tcu::TestStatus StencilTestInstance::verifyImage (void)
 			refStencilBack.compMask		= StencilTest::s_stencilStateConfigs[quadNdx].backReadMask;
 			refStencilBack.writeMask	= StencilTest::s_stencilStateConfigs[quadNdx].backWriteMask;
 
+			const auto start = cwVertices.begin() + ((i*StencilTest::QUAD_COUNT*6) + (quadNdx * 6));//quadNdx * 6 + (i * StencilTest::QUAD_COUNT * 6);
+			const auto end =  cwVertices.begin() + ((i*StencilTest::QUAD_COUNT*6) + ((quadNdx+1) * 6));;
 			refRenderer.draw(renderState,
 							 rr::PRIMITIVETYPE_TRIANGLES,
-							 std::vector<Vertex4RGBA>(cwVertices.begin() + quadNdx * 6,
-													  cwVertices.begin() + (quadNdx + 1) * 6));
+							 std::vector<Vertex4RGBA>(start, end));
 		}
+	}
 
-		// Compare result with reference image
-		if (m_colorAttachmentEnable)
+	// Compare result with reference image
+	if (m_colorAttachmentEnable)
+	{
+		const DeviceInterface&				vk					= m_context.getDeviceInterface();
+		const VkDevice						vkDevice			= m_context.getDevice();
+		const VkQueue						queue				= m_context.getUniversalQueue();
+		const deUint32						queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
+		SimpleAllocator						allocator			(vk, vkDevice, getPhysicalDeviceMemoryProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice()));
+		de::UniquePtr<tcu::TextureLevel>	result				(readColorAttachment(vk, vkDevice, queue, queueFamilyIndex, allocator, *m_colorImage, m_colorFormat, m_renderSize).release());
+
+		colorCompareOk = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
+																   "IntImageCompare",
+																   "Image comparison",
+																   refRenderer.getAccess(),
+																   result->getAccess(),
+																   tcu::UVec4(2, 2, 2, 2),
+																   tcu::IVec3(1, 1, 0),
+																   true,
+																   tcu::COMPARE_LOG_RESULT);
+	}
+	else
+	{
+		colorCompareOk = true;
+	}
+
+	// Compare stencil result with reference image
+	{
+		const DeviceInterface&				vk					= m_context.getDeviceInterface();
+		const VkDevice						vkDevice			= m_context.getDevice();
+		const VkQueue						queue				= m_context.getUniversalQueue();
+		const deUint32						queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
+		SimpleAllocator						allocator			(vk, vkDevice, getPhysicalDeviceMemoryProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice()));
+		de::UniquePtr<tcu::TextureLevel>	result				(readStencilAttachment(vk, vkDevice, queue, queueFamilyIndex, allocator, *m_stencilImage, m_stencilFormat, m_renderSize).release());
+
 		{
-			const DeviceInterface&				vk					= m_context.getDeviceInterface();
-			const VkDevice						vkDevice			= m_context.getDevice();
-			const VkQueue						queue				= m_context.getUniversalQueue();
-			const deUint32						queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
-			SimpleAllocator						allocator			(vk, vkDevice, getPhysicalDeviceMemoryProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice()));
-			de::UniquePtr<tcu::TextureLevel>	result				(readColorAttachment(vk, vkDevice, queue, queueFamilyIndex, allocator, *m_colorImages[testStateNdx], m_colorFormat, m_renderSize).release());
-
-			colorCompareOk = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
-																	   "IntImageCompare",
-																	   "Image comparison",
-																	   refRenderer.getAccess(),
-																	   result->getAccess(),
-																	   tcu::UVec4(2, 2, 2, 2),
-																	   tcu::IVec3(1, 1, 0),
-																	   true,
-																	   tcu::COMPARE_LOG_RESULT);
+			const tcu::PixelBufferAccess stencilAccess (tcu::getEffectiveDepthStencilAccess(refRenderer.getDepthStencilAccess(), tcu::Sampler::MODE_STENCIL));
+			stencilCompareOk = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
+																		 "StencilImageCompare",
+																		 "Stencil image comparison",
+																		 stencilAccess,
+																		 result->getAccess(),
+																		 tcu::UVec4(2, 2, 2, 2),
+																		 tcu::IVec3(1, 1, 0),
+																		 true,
+																		 tcu::COMPARE_LOG_RESULT);
 		}
-		else
-		{
-			colorCompareOk = true;
-		}
-
-		// Compare stencil result with reference image
-		{
-			const DeviceInterface&				vk					= m_context.getDeviceInterface();
-			const VkDevice						vkDevice			= m_context.getDevice();
-			const VkQueue						queue				= m_context.getUniversalQueue();
-			const deUint32						queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
-			SimpleAllocator						allocator			(vk, vkDevice, getPhysicalDeviceMemoryProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice()));
-			de::UniquePtr<tcu::TextureLevel>	result				(readStencilAttachment(vk, vkDevice, queue, queueFamilyIndex, allocator, *m_stencilImages[testStateNdx], m_stencilFormat, m_renderSize).release());
-
-			{
-				const tcu::PixelBufferAccess stencilAccess (tcu::getEffectiveDepthStencilAccess(refRenderer.getDepthStencilAccess(), tcu::Sampler::MODE_STENCIL));
-				stencilCompareOk = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
-																			 "StencilImageCompare",
-																			 "Stencil image comparison",
-																			 stencilAccess,
-																			 result->getAccess(),
-																			 tcu::UVec4(2, 2, 2, 2),
-																			 tcu::IVec3(1, 1, 0),
-																			 true,
-																			 tcu::COMPARE_LOG_RESULT);
-			}
-		}
-		if (!colorCompareOk || !stencilCompareOk)
-			break;
 	}
 
 	if (colorCompareOk && stencilCompareOk)
@@ -1665,7 +1695,7 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 								stencilStatesBack.push_back(stencilStateBack);
 							}
 						}
-					}t di
+					}
                     const std::string		caseName			= "__ALL__";
                     dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
 

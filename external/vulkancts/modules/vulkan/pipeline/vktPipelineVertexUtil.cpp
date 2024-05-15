@@ -889,7 +889,7 @@ bool isVertexFormatPacked(VkFormat format)
 	return false;
 }
 
-std::vector<Vertex4RGBA> createOverlappingQuads (void)
+std::vector<Vertex4RGBA> createOverlappingQuadsWith2dScaleAndTranslate (float scale, tcu::Vec2 translateVec)
 {
 	using tcu::Vec2;
 	using tcu::Vec4;
@@ -919,26 +919,31 @@ std::vector<Vertex4RGBA> createOverlappingQuads (void)
 		const Vec2&	translation	= translations[quadNdx];
 		const Vec4&	color		= quadColors[quadNdx];
 
-		const Vertex4RGBA lowerLeftVertex =
+		Vertex4RGBA lowerLeftVertex =
 		{
 			Vec4(translation.x(), translation.y(), 0.0f, 1.0f),
 			color
 		};
-		const Vertex4RGBA upperLeftVertex =
+		Vertex4RGBA upperLeftVertex =
 		{
 			Vec4(translation.x(), translation.y() + quadSize, 0.0f, 1.0f),
 			color
 		};
-		const Vertex4RGBA lowerRightVertex =
+		Vertex4RGBA lowerRightVertex =
 		{
 			Vec4(translation.x() + quadSize, translation.y(), 0.0f, 1.0f),
 			color
 		};
-		const Vertex4RGBA upperRightVertex =
+        Vertex4RGBA upperRightVertex =
 		{
 			Vec4(translation.x() + quadSize, translation.y() + quadSize, 0.0f, 1.0f),
 			color
 		};
+        lowerLeftVertex.position  = lowerLeftVertex.position  * Vec4(scale, scale, 1.0f, 1.0f) + Vec4(translateVec.x(), translateVec.y(), 0.0f, 0.0f);
+        upperLeftVertex.position  = upperLeftVertex.position  * Vec4(scale, scale, 1.0f, 1.0f) + Vec4(translateVec.x(), translateVec.y(), 0.0f, 0.0f);
+        lowerRightVertex.position = lowerRightVertex.position * Vec4(scale, scale, 1.0f, 1.0f) + Vec4(translateVec.x(), translateVec.y(), 0.0f, 0.0f);
+        upperRightVertex.position = upperRightVertex.position * Vec4(scale, scale, 1.0f, 1.0f) + Vec4(translateVec.x(), translateVec.y(), 0.0f, 0.0f);
+
 
 		// Triangle 1, CCW
 		vertices.push_back(lowerLeftVertex);
@@ -952,6 +957,11 @@ std::vector<Vertex4RGBA> createOverlappingQuads (void)
 	}
 
 	return vertices;
+}
+
+std::vector<Vertex4RGBA> createOverlappingQuads(void)
+{
+    return createOverlappingQuadsWith2dScaleAndTranslate(1.0f, tcu::Vec2(0,0));
 }
 
 std::vector<Vertex4RGBARGBA> createOverlappingQuadsDualSource (void)
