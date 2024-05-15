@@ -1551,24 +1551,24 @@ tcu::TestStatus NoStencilAttachmentInstance::iterate (void)
 
 // Utilities for test names
 
-const char* getShortName (VkStencilOp stencilOp)
-{
-	switch (stencilOp)
-	{
-		case VK_STENCIL_OP_KEEP:					return "keep";
-		case VK_STENCIL_OP_ZERO:					return "zero";
-		case VK_STENCIL_OP_REPLACE:					return "repl";
-		case VK_STENCIL_OP_INCREMENT_AND_CLAMP:		return "incc";
-		case VK_STENCIL_OP_DECREMENT_AND_CLAMP:		return "decc";
-		case VK_STENCIL_OP_INVERT:					return "inv";
-		case VK_STENCIL_OP_INCREMENT_AND_WRAP:		return "wrap";
-		case VK_STENCIL_OP_DECREMENT_AND_WRAP:		return "decw";
-
-		default:
-			DE_FATAL("Invalid VkStencilOpState value");
-	}
-	return DE_NULL;
-}
+//const char* getShortName (VkStencilOp stencilOp)
+//{
+//	switch (stencilOp)
+//	{
+//		case VK_STENCIL_OP_KEEP:					return "keep";
+//		case VK_STENCIL_OP_ZERO:					return "zero";
+//		case VK_STENCIL_OP_REPLACE:					return "repl";
+//		case VK_STENCIL_OP_INCREMENT_AND_CLAMP:		return "incc";
+//		case VK_STENCIL_OP_DECREMENT_AND_CLAMP:		return "decc";
+//		case VK_STENCIL_OP_INVERT:					return "inv";
+//		case VK_STENCIL_OP_INCREMENT_AND_WRAP:		return "wrap";
+//		case VK_STENCIL_OP_DECREMENT_AND_WRAP:		return "decw";
+//
+//		default:
+//			DE_FATAL("Invalid VkStencilOpState value");
+//	}
+//	return DE_NULL;
+//}
 
 std::string getFormatCaseName (VkFormat format)
 {
@@ -1658,17 +1658,17 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 
                 auto start = high_resolution_clock::now();
 
+                const std::string				failOpName	= std::string("fail_") + "__ALL__";
+                de::MovePtr<tcu::TestCaseGroup>	failOpTest	(new tcu::TestCaseGroup(testCtx, failOpName.c_str()));
+
+                const std::string				passOpName	= std::string("pass_") + "__ALL__";
+                de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
+                const std::string				dFailOpName	= std::string("dfail_") + "__ALL__";//;getShortName(stencilOps[dFailOpNdx]);
+                de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
+                std::vector<VkStencilOpState> stencilStatesFront;
+                std::vector<VkStencilOpState> stencilStatesBack;
 				for (deUint32 failOpNdx = 0u; failOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); failOpNdx++)
 				{
-					const std::string				failOpName	= std::string("fail_") + getShortName(stencilOps[failOpNdx]);
-					de::MovePtr<tcu::TestCaseGroup>	failOpTest	(new tcu::TestCaseGroup(testCtx, failOpName.c_str()));
-
-                    const std::string				passOpName	= std::string("pass_") + "__ALL__";
-                    de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
-                    const std::string				dFailOpName	= std::string("dfail_") + "__ALL__";//;getShortName(stencilOps[dFailOpNdx]);
-                    de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
-                    std::vector<VkStencilOpState> stencilStatesFront;
-                    std::vector<VkStencilOpState> stencilStatesBack;
 
 					for (deUint32 passOpNdx = 0u; passOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); passOpNdx++)
 					{
@@ -1696,15 +1696,15 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 							}
 						}
 					}
-                    const std::string		caseName			= "__ALL__";
-                    dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
-
-                    passOpTest->addChild(dFailOpTest.release());
-
-                    failOpTest->addChild(passOpTest.release());
-
-					stencilStateTests->addChild(failOpTest.release());
 				}
+                const std::string		caseName			= "__ALL__";
+                dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
+
+                passOpTest->addChild(dFailOpTest.release());
+
+                failOpTest->addChild(passOpTest.release());
+
+                stencilStateTests->addChild(failOpTest.release());
 
 				formatTest->addChild(stencilStateTests.release());
 				formatTests->addChild(formatTest.release());
