@@ -44,9 +44,26 @@
 #include "deMemory.h"
 #include "deStringUtil.hpp"
 #include "deUniquePtr.hpp"
-
+#include <chrono>
 #include <sstream>
 #include <vector>
+
+long long g_accumulatedMillisecondsDraw = 0;
+long long g_accumulatedMillisecondsVerify = 0;
+long long g_accumulatedMillisecondsIterate = 0;
+long long g_accumulatedMillisecondsMakeTests = 0;
+long long g_accumulatedMillisecondsConstruct = 0;
+long long g_accumulatedMillisecondsConstruct1 = 0;
+long long g_accumulatedMillisecondsConstruct2 = 0;
+long long g_accumulatedMillisecondsConstruct3 = 0;
+long long g_accumulatedMillisecondsConstruct4 = 0;
+long long g_accumulatedMillisecondsConstruct5 = 0;
+long long g_accumulatedMillisecondsConstruct6 = 0;
+long long g_accumulatedMillisecondsConstruct7 = 0;
+long long g_accumulatedMillisecondsConstruct8 = 0;
+long long g_accumulatedMillisecondsConstruct9 = 0;
+long long g_accumulatedMillisecondsConstruct10 = 0;
+long long g_accumulatedMillisecondsDestroy = 0;
 
 namespace vkt
 {
@@ -360,6 +377,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	, m_colorFormat					(colorAttachmentEnable ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_UNDEFINED)
 	, m_stencilFormat				(stencilFormat)
 {
+	auto start = std::chrono::high_resolution_clock::now();
+
 	const DeviceInterface&		vk						= context.getDeviceInterface();
 	const VkDevice				vkDevice				= context.getDevice();
 	const deUint32				queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
@@ -409,6 +428,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		m_colorImageAlloc		= memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_colorImage), MemoryRequirement::Any);
 		VK_CHECK(vk.bindImageMemory(vkDevice, *m_colorImage, m_colorImageAlloc->getMemory(), m_colorImageAlloc->getOffset()));
 	}
+	auto start1 = std::chrono::high_resolution_clock::now();
 
 	// Create stencil image
 	{
@@ -443,6 +463,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 																										: VK_IMAGE_ASPECT_STENCIL_BIT);
 		m_stencilImageSubresourceRange  = makeImageSubresourceRange(aspect, 0u, stencilImageParams.mipLevels, 0u, stencilImageParams.arrayLayers);
 	}
+	auto start2 = std::chrono::high_resolution_clock::now();
 
 	// Create color attachment view
 	if (m_colorAttachmentEnable)
@@ -461,6 +482,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 
 		m_colorAttachmentView = createImageView(vk, vkDevice, &colorAttachmentViewParams);
 	}
+	auto start3 = std::chrono::high_resolution_clock::now();
 
 	// Create stencil attachment view
 	{
@@ -478,6 +500,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 
 		m_stencilAttachmentView = createImageView(vk, vkDevice, &stencilAttachmentViewParams);
 	}
+	auto start4 = std::chrono::high_resolution_clock::now();
 
 	// Create render pass
 	m_renderPass = RenderPassWrapper(pipelineConstructionType, vk, vkDevice, m_colorFormat, m_stencilFormat);
@@ -511,6 +534,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 
 		m_renderPass.createFramebuffer(vk, vkDevice, &framebufferParams, images);
 	}
+	auto start5 = std::chrono::high_resolution_clock::now();
 
 	// Create pipeline layout
 	{
@@ -531,7 +555,18 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 	m_vertexShaderModule		= ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_vert"), 0);
 	if (m_colorAttachmentEnable)
 		m_fragmentShaderModule	= ShaderWrapper(vk, vkDevice, m_context.getBinaryCollection().get("color_frag"), 0);
+	auto start6 = std::chrono::high_resolution_clock::now();
 
+	const VkPipelineCacheCreateInfo pipelineCacheCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,	// VkStructureType             sType;
+		DE_NULL,										// const void*                 pNext;
+		0,			// VkPipelineCacheCreateFlags  flags;
+		0u,												// deUintptr                   initialDataSize;
+		DE_NULL,										// const void*                 pInitialData;
+	};
+
+	Move<VkPipelineCache> cache = createPipelineCache(vk, vkDevice, &pipelineCacheCreateInfo);
 	// Create pipeline
 	{
 		const VkVertexInputBindingDescription vertexInputBindingDescription
@@ -606,6 +641,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 			VK_COLOR_COMPONENT_A_BIT,
 
 		};
+
 		const vk::VkPipelineColorBlendStateCreateInfo colorBlendStateParams
 		{
 			vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	// VkStructureType								sType
@@ -668,10 +704,12 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 					.setupFragmentShaderState(m_pipelineLayout, *m_renderPass, 0u, m_fragmentShaderModule, &depthStencilStateParams)
 					.setupFragmentOutputState(*m_renderPass, 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
 					.setMonolithicPipelineLayout(m_pipelineLayout)
-					.buildPipeline();
+					.buildPipeline(*cache);
 			}
 		}
+
 	}
+	auto start8 = std::chrono::high_resolution_clock::now();
 
 	// Create vertex buffer
 	{
@@ -725,6 +763,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		deMemcpy(m_vertexBufferAlloc->getHostPtr(), m_vertices.data(), m_vertices.size() * sizeof(Vertex4RGBA));
 		flushAlloc(vk, vkDevice, *m_vertexBufferAlloc);
 	}
+	auto start9 = std::chrono::high_resolution_clock::now();
 
 	// Create command pool
 	m_cmdPool = createCommandPool(vk, vkDevice, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
@@ -800,17 +839,61 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		m_renderPass.end(vk, *m_cmdBuffer);
 		endCommandBuffer(vk, *m_cmdBuffer);
 	}
+
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	g_accumulatedMillisecondsConstruct += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start1).count();
+	g_accumulatedMillisecondsConstruct1 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start2).count();
+	g_accumulatedMillisecondsConstruct2 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start3).count();
+	g_accumulatedMillisecondsConstruct3 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start4).count();
+	g_accumulatedMillisecondsConstruct4 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start5).count();
+	g_accumulatedMillisecondsConstruct5 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start6).count();
+	g_accumulatedMillisecondsConstruct6 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start8).count();
+	g_accumulatedMillisecondsConstruct8 += duration;
+
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start9).count();
+	g_accumulatedMillisecondsConstruct9 += duration;
+
 }
+
+
 
 tcu::TestStatus StencilTestInstance::iterate (void)
 {
-	const DeviceInterface&		vk			= m_context.getDeviceInterface();
-	const VkDevice				vkDevice	= m_context.getDevice();
-	const VkQueue				queue		= m_context.getUniversalQueue();
+	const DeviceInterface& vk = m_context.getDeviceInterface();
+	const VkDevice vkDevice = m_context.getDevice();
+	const VkQueue queue = m_context.getUniversalQueue();
 
+	// Measure time taken by submitCommandsAndWait
+	auto start = std::chrono::high_resolution_clock::now();
 	submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffer.get());
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	g_accumulatedMillisecondsDraw += duration;
 
-	return verifyImage();
+	// Measure time taken by verifyImage
+	start = std::chrono::high_resolution_clock::now();
+	auto x = verifyImage();
+	end = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	g_accumulatedMillisecondsVerify += duration;
+
+	return x;
 }
 
 tcu::TestStatus StencilTestInstance::verifyImage (void)
@@ -1552,6 +1635,8 @@ std::string getFormatCaseName (VkFormat format)
 
 tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConstructionType pipelineConstructionType)
 {
+
+	auto start = std::chrono::high_resolution_clock::now();
 	const VkFormat stencilFormats[] =
 	{
 		VK_FORMAT_S8_UINT,
@@ -1749,6 +1834,11 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 
 		stencilTests->addChild(noStencilAttGroup.release());
 	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	g_accumulatedMillisecondsMakeTests += duration;
+
 
 	return stencilTests.release();
 }

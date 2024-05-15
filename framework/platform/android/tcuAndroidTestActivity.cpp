@@ -30,6 +30,19 @@
 #include <string>
 #include <stdlib.h>
 
+extern long long g_accumulatedMillisecondsDraw ;
+extern long long g_accumulatedMillisecondsVerify ;
+extern long long g_accumulatedMillisecondsMakeTests ;
+extern long long g_accumulatedMillisecondsConstruct ;
+extern long long g_accumulatedMillisecondsConstruct1 ;
+extern long long g_accumulatedMillisecondsConstruct2 ;
+extern long long g_accumulatedMillisecondsConstruct3 ;
+extern long long g_accumulatedMillisecondsConstruct4 ;
+extern long long g_accumulatedMillisecondsConstruct5 ;
+extern long long g_accumulatedMillisecondsConstruct6 ;
+extern long long g_accumulatedMillisecondsConstruct8 ;
+extern long long g_accumulatedMillisecondsConstruct9 ;
+
 using std::string;
 
 namespace tcu
@@ -139,8 +152,20 @@ void TestActivity::onDestroy (void)
 
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto ms_int = std::chrono::duration_cast<std::chrono::seconds>(t2 - m_timestart);
-	tcu::print("Tom: finished in %lld seconds\n", ms_int.count());
 
+	tcu::print("Tom: finished in %lld seconds g_accumulatedMillisecondsDraw: %lld g_accumulatedMillisecondsVerify: %lld , g_accumulatedMillisecondsMakeTests %lld, g_accumulatedMillisecondsConstruct: %lld\n",
+	 ms_int.count(), g_accumulatedMillisecondsDraw, g_accumulatedMillisecondsVerify, g_accumulatedMillisecondsMakeTests, g_accumulatedMillisecondsConstruct);
+
+
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct1 %lld seconds \n", g_accumulatedMillisecondsConstruct1);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct2 %lld seconds \n", g_accumulatedMillisecondsConstruct2);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct3 %lld seconds \n", g_accumulatedMillisecondsConstruct3);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct4 %lld seconds \n", g_accumulatedMillisecondsConstruct4);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct5 %lld seconds \n", g_accumulatedMillisecondsConstruct5);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct6 %lld seconds \n", g_accumulatedMillisecondsConstruct6);
+//	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct7 %lld seconds \n", g_accumulatedMillisecondsConstruct7);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct8 %lld seconds \n", g_accumulatedMillisecondsConstruct8);
+	tcu::print("Tom: finished in g_accumulatedMillisecondsConstruct9 %lld seconds \n", g_accumulatedMillisecondsConstruct9);
 	// Kill this process.
 	print("Done, killing process");
 	exit(0);
