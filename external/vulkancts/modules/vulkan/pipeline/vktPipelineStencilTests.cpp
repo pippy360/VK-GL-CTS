@@ -760,7 +760,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 		{
 			VkDeviceSize vertexBufferOffset = quadOffset * quadNdx;
 
-			m_graphicsPipelines[quadNdx].bind(*m_cmdBuffers[testStateNdx]);
+            const size_t pipelineNdx = (testStateNdx * StencilTest::QUAD_COUNT) + quadNdx;
+			m_graphicsPipelines[pipelineNdx].bind(*m_cmdBuffers[testStateNdx]);
 			vk.cmdBindVertexBuffers(*m_cmdBuffers[testStateNdx], 0, 1, &m_vertexBuffers[testStateNdx].get(), &vertexBufferOffset);
 			vk.cmdDraw(*m_cmdBuffers[testStateNdx], (deUint32)(m_verticesList[testStateNdx].size() / StencilTest::QUAD_COUNT), 1, 0, 0);
 		}
