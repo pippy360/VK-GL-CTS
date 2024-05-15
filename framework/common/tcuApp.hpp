@@ -31,6 +31,8 @@
 #include "qpCrashHandler.h"
 #include "deMutex.hpp"
 
+#include <chrono>
+
 namespace tcu
 {
 

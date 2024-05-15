@@ -391,6 +391,16 @@ StencilTestInstance::StencilTestInstance (Context&					context,
 										 pipelineConstructionType);
 	}
 
+	const VkPipelineCacheCreateInfo pipelineCacheCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,	// VkStructureType             sType;
+		DE_NULL,										// const void*                 pNext;
+		0,			// VkPipelineCacheCreateFlags  flags;
+		0u,												// deUintptr                   initialDataSize;
+		DE_NULL,										// const void*                 pInitialData;
+	};
+
+	Move<VkPipelineCache> cache = createPipelineCache(vk, vkDevice, &pipelineCacheCreateInfo);
 	for (size_t testStateNdx = 0; testStateNdx < m_stencilOpStatesFront.size(); testStateNdx++) {
 		// Create color image
 		if (m_colorAttachmentEnable)
@@ -671,7 +681,8 @@ StencilTestInstance::StencilTestInstance (Context&					context,
                                         .setupFragmentShaderState(m_pipelineLayouts[testStateNdx], *m_renderPasses[testStateNdx], 0u, m_fragmentShaderModules[testStateNdx], &depthStencilStateParams)
                                         .setupFragmentOutputState(*m_renderPasses[testStateNdx], 0, (m_colorAttachmentEnable ? &colorBlendStateParams : DE_NULL))
                                         .setMonolithicPipelineLayout(m_pipelineLayouts[testStateNdx])
-                                        .buildPipeline();
+                                        .buildPipeline(
+                                        	cache);
         }
         g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
 
