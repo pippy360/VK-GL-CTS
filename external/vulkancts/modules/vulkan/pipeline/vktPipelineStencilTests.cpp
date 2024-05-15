@@ -1633,14 +1633,15 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 					const std::string				failOpName	= std::string("fail_") + getShortName(stencilOps[failOpNdx]);
 					de::MovePtr<tcu::TestCaseGroup>	failOpTest	(new tcu::TestCaseGroup(testCtx, failOpName.c_str()));
 
+                    const std::string				passOpName	= std::string("pass_") + "__ALL__";
+                    de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
+                    const std::string				dFailOpName	= std::string("dfail_") + "__ALL__";//;getShortName(stencilOps[dFailOpNdx]);
+                    de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
+                    std::vector<VkStencilOpState> stencilStatesFront;
+                    std::vector<VkStencilOpState> stencilStatesBack;
+
 					for (deUint32 passOpNdx = 0u; passOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); passOpNdx++)
 					{
-						const std::string				passOpName	= std::string("pass_") + getShortName(stencilOps[passOpNdx]);
-						de::MovePtr<tcu::TestCaseGroup>	passOpTest	(new tcu::TestCaseGroup(testCtx, passOpName.c_str()));
-                        const std::string				dFailOpName	= std::string("dfail_") + "__ALL__";//;getShortName(stencilOps[dFailOpNdx]);
-                        de::MovePtr<tcu::TestCaseGroup>	dFailOpTest	(new tcu::TestCaseGroup(testCtx, dFailOpName.c_str()));
-                        std::vector<VkStencilOpState> stencilStatesFront;
-                        std::vector<VkStencilOpState> stencilStatesBack;
 
 						for (deUint32 dFailOpNdx = 0u; dFailOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); dFailOpNdx++)
 						{
@@ -1664,13 +1665,14 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 								stencilStatesBack.push_back(stencilStateBack);
 							}
 						}
-                        const std::string		caseName			= "__ALL__";
-                        dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
+					}t di
+                    const std::string		caseName			= "__ALL__";
+                    dFailOpTest->addChild(new StencilTest(testCtx, caseName, pipelineConstructionType, stencilFormat, stencilStatesFront, stencilStatesBack, colorEnabled, useSeparateDepthStencilLayouts));
 
-                        passOpTest->addChild(dFailOpTest.release());
+                    passOpTest->addChild(dFailOpTest.release());
 
-						failOpTest->addChild(passOpTest.release());
-					}
+                    failOpTest->addChild(passOpTest.release());
+
 					stencilStateTests->addChild(failOpTest.release());
 				}
 
