@@ -26,6 +26,7 @@
 
 #include <android/window.h>
 
+#include <chrono>
 #include <string>
 #include <stdlib.h>
 
@@ -91,6 +92,7 @@ TestActivity::TestActivity (ANativeActivity* activity)
 	, m_cmdLine			(getIntentStringExtra(activity, "cmdLine"))
 	, m_testThread		(*this, getIntentStringExtra(activity, "cmdLine"), m_cmdLine)
 	, m_started			(false)
+	, m_timeStarted     (std::chrono::high_resolution_clock::now())
 {
 	// Set initial orientation.
 	setRequestedOrientation(getNativeActivity(), mapScreenRotation(m_cmdLine.getScreenRotation()));
@@ -129,8 +131,10 @@ void TestActivity::onDestroy (void)
 
 	RenderActivity::onDestroy();
 
+	auto end = std::chrono::high_resolution_clock::now();
+	auto runTimeSec = std::chrono::duration_cast<std::chrono::seconds>(end - m_timeStarted);
 	// Kill this process.
-	print("Done, killing process");
+	print("Done in %ld seconds. killing process", runTimeSec.count());
 	exit(0);
 }
 

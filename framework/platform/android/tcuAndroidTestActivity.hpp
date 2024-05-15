@@ -31,6 +31,8 @@
 #include "tcuTestLog.hpp"
 #include "tcuApp.hpp"
 
+#include <chrono>
+
 namespace tcu
 {
 namespace Android
@@ -72,6 +74,7 @@ private:
 	CommandLine				m_cmdLine;
 	TestThread				m_testThread;
 	bool					m_started;
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_timeStarted;
 };
 
 } // Android
