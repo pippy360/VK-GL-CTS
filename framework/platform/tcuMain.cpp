@@ -31,6 +31,7 @@
 #include "deUniquePtr.hpp"
 #include "qpDebugOut.h"
 
+#include <chrono>
 #include <cstdio>
 
 // Implement this in your platform port.
@@ -53,6 +54,7 @@ int main (int argc, char** argv)
 	// Set stdout to line-buffered mode (will be fully buffered by default if stdout is pipe).
 	setvbuf(stdout, DE_NULL, _IOLBF, 4*1024);
 #endif
+    auto start = std::chrono::high_resolution_clock::now();
 
 	try
 	{
@@ -85,6 +87,10 @@ int main (int argc, char** argv)
 	{
 		tcu::die("%s", e.what());
 	}
+
+    auto end = std::chrono::high_resolution_clock::now();
+	auto runTimeSec = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+    tcu::print("Done in %lld seconds.", runTimeSec.count());
 
 	return exitStatus;
 }

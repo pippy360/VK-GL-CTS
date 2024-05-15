@@ -45,8 +45,16 @@
 #include "deStringUtil.hpp"
 #include "deUniquePtr.hpp"
 
+#include <chrono>
 #include <sstream>
 #include <vector>
+
+size_t g_timeTakenToDraw_ms = 0;
+size_t g_timeTakenToMakePipeline_ms = 0;
+size_t g_timeTakenToCreateTests_ms = 0;
+size_t g_timeTakenToVerifyImages_ms = 0;
+using namespace std::chrono;
+
 
 namespace vkt
 {
@@ -633,6 +641,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
             1.0f														// float									maxDepthBounds;
         };
 
+        auto start = high_resolution_clock::now();
         // Setup different stencil masks and refs in each quad
         for (int quadNdx = 0; quadNdx < StencilTest::QUAD_COUNT; quadNdx++)
         {
@@ -664,6 +673,7 @@ StencilTestInstance::StencilTestInstance (Context&					context,
                                         .setMonolithicPipelineLayout(m_pipelineLayouts[testStateNdx])
                                         .buildPipeline();
         }
+        g_timeTakenToMakePipeline_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
 
         // Create vertex buffer
         {
@@ -777,11 +787,20 @@ tcu::TestStatus StencilTestInstance::iterate (void)
 	const VkDevice				vkDevice	= m_context.getDevice();
 	const VkQueue				queue		= m_context.getUniversalQueue();
 
+    auto start = high_resolution_clock::now();
+
 	for (size_t testStateNdx = 0; testStateNdx < m_stencilOpStatesFront.size(); testStateNdx++) {
 		submitCommandsAndWait(vk, vkDevice, queue, m_cmdBuffers[testStateNdx].get());
 	}
 
-	return verifyImage();
+    g_timeTakenToDraw_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
+
+
+    start = high_resolution_clock::now();
+	auto r = verifyImage();
+    g_timeTakenToVerifyImages_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
+
+    return r;
 }
 
 tcu::TestStatus StencilTestInstance::verifyImage (void)
@@ -1597,6 +1616,8 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 
 				stencilOpItr.reset();
 
+                auto start = high_resolution_clock::now();
+
 				for (deUint32 failOpNdx = 0u; failOpNdx < DE_LENGTH_OF_ARRAY(stencilOps); failOpNdx++)
 				{
 					const std::string				failOpName	= std::string("fail_") + getShortName(stencilOps[failOpNdx]);
@@ -1644,6 +1665,9 @@ tcu::TestCaseGroup* createStencilTests (tcu::TestContext& testCtx, PipelineConst
 
 				formatTest->addChild(stencilStateTests.release());
 				formatTests->addChild(formatTest.release());
+
+                g_timeTakenToCreateTests_ms += duration_cast<milliseconds>(high_resolution_clock::now() - start).count();
+
 			}
 		}
 

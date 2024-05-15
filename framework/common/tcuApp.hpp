@@ -92,6 +92,7 @@ protected:
 	TestContext*			m_testCtx;
 	TestPackageRoot*		m_testRoot;
 	TestSessionExecutor*	m_testExecutor;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_startTime;
 };
 
 } // tcu

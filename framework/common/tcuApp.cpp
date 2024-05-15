@@ -36,6 +36,12 @@
 
 #include <iostream>
 
+
+extern long g_timeTakenToDraw_ms;
+extern long g_timeTakenToMakePipeline_ms;
+extern long g_timeTakenToCreateTests_ms;
+extern long g_timeTakenToVerifyImages_ms;
+
 namespace tcu
 {
 
@@ -132,6 +138,7 @@ App::App (Platform& platform, Archive& archive, TestLog& log, const CommandLine&
 	, m_testCtx			(DE_NULL)
 	, m_testRoot		(DE_NULL)
 	, m_testExecutor	(DE_NULL)
+    , m_startTime       (std::chrono::high_resolution_clock::now())
 {
 	if (!cmdLine.isSubProcess())
 	{
@@ -252,6 +259,16 @@ bool App::iterate (void)
 				print("  Not supported: %d/%d (%.1f%%)\n", result.numNotSupported,	result.numExecuted, (result.numExecuted > 0 ? (100.0f * (float)result.numNotSupported	/ (float)result.numExecuted) : 0.0f));
 				print("  Warnings:      %d/%d (%.1f%%)\n", result.numWarnings,		result.numExecuted, (result.numExecuted > 0 ? (100.0f * (float)result.numWarnings		/ (float)result.numExecuted) : 0.0f));
 				print("  Waived:        %d/%d (%.1f%%)\n", result.numWaived,		result.numExecuted, (result.numExecuted > 0 ? (100.0f * (float)result.numWaived			/ (float)result.numExecuted) : 0.0f));
+
+                auto end = std::chrono::high_resolution_clock::now();
+                auto runTimeSec = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_startTime);
+                tcu::print("Done in %f seconds.\n", ((float)runTimeSec.count())/1000.0f);
+
+                print("Profiling: g_timeTakenToDraw_ms: %lums,  g_timeTakenToCreateTests_ms: %lums, g_timeTakenToMakePipelines_ms: %lums, g_timeTakenToVerifyImages_ms: %lums\n",
+                      g_timeTakenToDraw_ms,
+                      g_timeTakenToCreateTests_ms,
+                      g_timeTakenToMakePipeline_ms,
+                      g_timeTakenToVerifyImages_ms);
 				if (!result.isComplete)
 					print("Test run was ABORTED!\n");
 			}
