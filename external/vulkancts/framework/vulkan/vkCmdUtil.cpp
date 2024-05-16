@@ -26,6 +26,11 @@
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
 
+#include <chrono>
+
+long g_submitCommandsAndWait = 0;
+long g_waitForFence = 0;
+
 namespace vk
 {
 
@@ -356,13 +361,18 @@ void submitCommandsAndWait (const DeviceInterface&		vk,
 							const deUint32				signalSemaphoreCount,
 							const VkSemaphore*			pSignalSemaphores)
 {
+    auto start = std::chrono::high_resolution_clock::now();
 	const auto fence = submitCommands(vk, device, queue, commandBuffer, useDeviceGroups, deviceMask, waitSemaphoreCount, waitSemaphores, waitStages, signalSemaphoreCount, pSignalSemaphores);
+
 	waitForFence(vk, device, *fence);
+    g_submitCommandsAndWait += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 }
 
 void waitForFence (const DeviceInterface& vk, const VkDevice device, const VkFence fence, uint64_t timeoutNanos)
 {
+    auto start = std::chrono::high_resolution_clock::now();
 	VK_CHECK(vk.waitForFences(device, 1u, &fence, VK_TRUE, timeoutNanos));
+    g_waitForFence += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 }
 
 vk::Move<VkFence> submitCommands (const DeviceInterface&		vk,

@@ -134,7 +134,7 @@ void TestActivity::onDestroy (void)
 	auto end = std::chrono::high_resolution_clock::now();
 	auto runTimeSec = std::chrono::duration_cast<std::chrono::seconds>(end - m_timeStarted);
 	// Kill this process.
-	print("Done in %ld seconds. killing process", runTimeSec.count());
+	print("Done in %lld seconds. killing process", runTimeSec.count());
 	exit(0);
 }
 

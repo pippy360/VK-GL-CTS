@@ -28,6 +28,9 @@
 
 #include "deClock.h"
 
+long g_enterTestCase_ms = 0;
+long g_executeTestCase_ms = 0;
+
 namespace tcu
 {
 
@@ -62,6 +65,9 @@ TestSessionExecutor::TestSessionExecutor (TestPackageRoot& root, TestContext& te
 
 TestSessionExecutor::~TestSessionExecutor (void)
 {
+    for ( const auto &timeTaken : testGroupTimeTaken ) {
+        printf("Tom: %s %lds\n", timeTaken.first.c_str(), timeTaken.second);
+    }
 }
 
 bool TestSessionExecutor::iterate (void)
@@ -92,7 +98,19 @@ bool TestSessionExecutor::iterate (void)
 
 						case NODETYPE_GROUP:
 						{
-							isEnter ? enterTestGroup(m_iterator.getNodePath()) : leaveTestGroup(m_iterator.getNodePath());
+                            if (isEnter) {
+                                enterTestGroup(m_iterator.getNodePath());
+                                if (m_iterator.getNodePath().length() < 50)
+                                    testGroupStartTimes[m_iterator.getNodePath()] = std::chrono::high_resolution_clock::now();
+                            } else {
+                                if (m_iterator.getNodePath().length() < 50) {
+                                    auto timeTaken = std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::high_resolution_clock::now() - testGroupStartTimes[m_iterator.getNodePath()]).count();
+
+                                    testGroupTimeTaken[m_iterator.getNodePath()] = timeTaken;
+                                }
+                                leaveTestGroup(m_iterator.getNodePath());
+                            }
 							break; // nada
 						}
 
@@ -105,9 +123,12 @@ bool TestSessionExecutor::iterate (void)
 
 							if (isEnter)
 							{
+                                auto start = std::chrono::high_resolution_clock::now();
+
 								if (enterTestCase(testCase, m_iterator.getNodePath()))
 									m_state = STATE_EXECUTE_TEST_CASE;
 								// else remain in TRAVERSING_HIERARCHY => node will be exited from in the next iteration
+                                g_enterTestCase_ms += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 							}
 							else
 								leaveTestCase(testCase);
@@ -118,7 +139,8 @@ bool TestSessionExecutor::iterate (void)
 						default:
 							DE_ASSERT(false);
 							break;
-					}
+                        case NODETYPE_ROOT:break;
+                    }
 
 					m_iterator.next();
 					break;
@@ -133,6 +155,8 @@ bool TestSessionExecutor::iterate (void)
 
 			case STATE_EXECUTE_TEST_CASE:
 			{
+                auto start = std::chrono::high_resolution_clock::now();
+
 				DE_ASSERT(m_iterator.getState() == TestHierarchyIterator::STATE_LEAVE_NODE &&
 						  isTestNodeTypeExecutable(m_iterator.getNode()->getNodeType()));
 
@@ -142,6 +166,7 @@ bool TestSessionExecutor::iterate (void)
 				if (iterResult == TestCase::STOP)
 					m_state = STATE_TRAVERSE_HIERARCHY;
 
+                g_executeTestCase_ms += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 				return true;
 			}
 
@@ -165,6 +190,10 @@ void TestSessionExecutor::enterTestPackage (TestPackage* testPackage)
 
 void TestSessionExecutor::leaveTestPackage (TestPackage* testPackage)
 {
+    for ( const auto &timeTaken : testGroupTimeTaken ) {
+        printf("Tom: %s %lds\n", timeTaken.first.c_str(), timeTaken.second);
+    }
+
 	DE_UNREF(testPackage);
 	m_caseExecutor->deinitTestPackage(m_testCtx);
 	// If m_caseExecutor uses local status then it may perform some tests in deinitTestPackage(). We have to update TestSessionExecutor::m_status

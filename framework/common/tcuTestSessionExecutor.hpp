@@ -29,6 +29,8 @@
 #include "tcuTestPackage.hpp"
 #include "tcuTestHierarchyIterator.hpp"
 #include "deUniquePtr.hpp"
+
+#include <chrono>
 #include <map>
 
 namespace tcu
@@ -55,7 +57,8 @@ private:
 	bool							enterTestCase				(TestCase* testCase, const std::string& casePath);
 	TestCase::IterateResult			iterateTestCase				(TestCase* testCase);
 	void							leaveTestCase				(TestCase* testCase);
-
+    std::map<std::string, std::chrono::time_point<std::chrono::high_resolution_clock>> testGroupStartTimes;
+    std::map<std::string, long> testGroupTimeTaken;
 	enum State
 	{
 		STATE_TRAVERSE_HIERARCHY = 0,

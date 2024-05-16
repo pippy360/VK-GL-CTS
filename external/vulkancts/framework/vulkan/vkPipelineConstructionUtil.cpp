@@ -41,9 +41,12 @@
 #include "vkPipelineConstructionUtil.hpp"
 #include "vkBarrierUtil.hpp"
 
+#include <chrono>
 #include <memory>
 #include <set>
 #include <map>
+
+long g_buildPipeline_ms = 0;
 
 namespace vk
 {
@@ -3358,6 +3361,7 @@ void GraphicsPipelineWrapper::buildPipeline(const VkPipelineCache						pipelineC
 											PipelineCreationFeedbackCreateInfoWrapper	creationFeedback,
 											void*										pNext)
 {
+//    auto start = std::chrono::high_resolution_clock::now();
 	// make sure we are not trying to build pipeline second time
 	DE_ASSERT(m_pipelineFinal.get() == DE_NULL);
 
@@ -3910,6 +3914,7 @@ void GraphicsPipelineWrapper::buildPipeline(const VkPipelineCache						pipelineC
 
 		m_pipelineFinal = makeGraphicsPipeline(m_internalData->vk, m_internalData->device, pipelineCache, pointerToCreateInfo);
 	}
+//q    g_buildPipeline_ms += std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
 }
 
 bool GraphicsPipelineWrapper::isShaderObjectDynamic (vk::VkDynamicState dynamicState) const

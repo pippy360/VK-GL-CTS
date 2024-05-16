@@ -41,6 +41,12 @@ extern long g_timeTakenToMakePipeline_ms;
 extern long g_timeTakenToCreateTests_ms;
 extern long g_timeTakenToVerifyImages_ms;
 
+extern long g_submitCommandsAndWait;
+extern long g_waitForFence;
+extern long g_buildPipeline_ms;
+extern long g_enterTestCase_ms;
+extern long g_executeTestCase_ms;
+
 namespace tcu
 {
 
@@ -263,11 +269,11 @@ bool App::iterate (void)
                 auto runTimeSec = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_startTime);
                 tcu::print("Done in %f seconds.\n", ((float)runTimeSec.count())/1000.0f);
 
-                print("Profiling: g_timeTakenToDraw_ms: %lums,  g_timeTakenToCreateTests_ms: %lums, g_timeTakenToMakePipelines_ms: %lums, g_timeTakenToVerifyImages_ms: %lums\n",
-                      g_timeTakenToDraw_ms,
-                      g_timeTakenToCreateTests_ms,
-                      g_timeTakenToMakePipeline_ms,
-                      g_timeTakenToVerifyImages_ms);
+                print("Profiling: g_submitCommandsAndWait: %lums,  g_buildPipeline_ms: %lums, g_enterTestCase_ms: %lums, g_executeTestCase_ms: %lums\n",
+                      g_submitCommandsAndWait,
+                      g_buildPipeline_ms,
+                      g_enterTestCase_ms,
+                      g_executeTestCase_ms);
 
 
 				if (!result.isComplete)
