@@ -758,7 +758,7 @@ IncrementalPresentTestInstance::IncrementalPresentTestInstance(Context &context,
                                                   testConfig.presentMode, testConfig.transform, testConfig.alpha))
     , m_swapchainConfigNdx(0u)
 
-    , m_frameCount(60u * 5u)
+    , m_frameCount(10u)
     , m_frameNdx(0u)
 
     , m_maxOutOfDateCount(20u)

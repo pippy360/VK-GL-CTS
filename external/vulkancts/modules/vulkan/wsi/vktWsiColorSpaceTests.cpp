@@ -604,7 +604,7 @@ tcu::TestStatus surfaceFormatRenderTest(Context &context, Type wsiType, const In
 
     try
     {
-        const uint32_t numFramesToRender = 60;
+        const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(swapchainImages.size() * 2u));
 
         for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
         {

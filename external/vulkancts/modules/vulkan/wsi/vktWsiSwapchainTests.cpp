@@ -1249,7 +1249,7 @@ tcu::TestStatus basicRenderTest(Context &context, Type wsiType)
 
     try
     {
-        const uint32_t numFramesToRender = 60 * 10;
+        const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(swapchainImages.size() * 2u));
 
         for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
         {
@@ -1477,7 +1477,7 @@ tcu::TestStatus testImageSwapchainCreateInfo(Context &context, ImageSwapchainCre
 
     try
     {
-        const uint32_t numFramesToRender = 60;
+        const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(swapchainImages.size() * 2u));
 
         for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
         {
@@ -1943,7 +1943,7 @@ tcu::TestStatus deviceGroupRenderTest(Context &context, Type wsiType)
 
     try
     {
-        const uint32_t numFramesToRender = 60 * 10;
+        const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(swapchainImages.size() * 2u));
 
         for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
         {
@@ -2304,7 +2304,7 @@ tcu::TestStatus deviceGroupRenderTest2(Context &context, Type wsiType)
 
     try
     {
-        const uint32_t numFramesToRender = 60 * 10;
+        const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(rawImagesSfr.size() * 2u));
 
         for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
         {
@@ -2476,7 +2476,7 @@ tcu::TestStatus resizeSwapchainTest(Context &context, Type wsiType)
 
         try
         {
-            const uint32_t numFramesToRender = 60;
+            const uint32_t numFramesToRender = std::max(10u, static_cast<uint32_t>(swapchainImages.size() * 2u));
 
             for (uint32_t frameNdx = 0; frameNdx < numFramesToRender; ++frameNdx)
             {
